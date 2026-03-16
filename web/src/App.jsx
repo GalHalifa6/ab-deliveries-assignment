@@ -1,6 +1,98 @@
+import { useState } from 'react'
 import illustrationImage from './assets/71b1ce93ba00a27b8ef291cb449e0a6ea47d2ba9.png'
 
 function App() {
+  const [mode, setMode] = useState('login')
+  const [showPassword, setShowPassword] = useState(false)
+  const [formData, setFormData] = useState({
+    fullName: '',
+    phone: '',
+    email: '',
+    password: '',
+  })
+  const [submitState, setSubmitState] = useState({
+    status: 'idle',
+    message: '',
+  })
+
+  const isRegisterMode = mode === 'register'
+
+  const handleChange = (event) => {
+    const { name, value } = event.target
+
+    setFormData((current) => ({
+      ...current,
+      [name]: value,
+    }))
+  }
+
+  const switchMode = (nextMode) => {
+    setMode(nextMode)
+    setShowPassword(false)
+    setSubmitState({
+      status: 'idle',
+      message: '',
+    })
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+
+    if (!isRegisterMode) {
+      setSubmitState({
+        status: 'success',
+        message: 'Login flow UI is ready. Backend login can be connected next.',
+      })
+      return
+    }
+
+    if (!formData.fullName || !formData.phone || !formData.email || !formData.password) {
+      setSubmitState({
+        status: 'error',
+        message: 'Please fill in all registration fields.',
+      })
+      return
+    }
+
+    setSubmitState({
+      status: 'loading',
+      message: 'Creating your account...',
+    })
+
+    try {
+      const response = await fetch('http://127.0.0.1:8000/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.detail || 'Registration failed.')
+      }
+
+      setSubmitState({
+        status: 'success',
+        message: data.message || 'Registration completed successfully.',
+      })
+
+      setFormData({
+        fullName: '',
+        phone: '',
+        email: '',
+        password: '',
+      })
+    } catch (error) {
+      setSubmitState({
+        status: 'error',
+        message: error.message || 'Could not connect to the Python server.',
+      })
+    }
+  }
+
   return (
     <main className="page">
       <section className="auth-card">
@@ -113,12 +205,64 @@ function App() {
         </div>
 
         <div className="auth-card__right">
-          <section className="login-panel">
+          <form className="login-panel" onSubmit={handleSubmit}>
             <header className="login-panel__header">
-              <h2 className="login-panel__title">Log in</h2>
+              <h2 className="login-panel__title">{isRegisterMode ? 'Sign up' : 'Log in'}</h2>
             </header>
 
             <div className="login-panel__inputs">
+              {isRegisterMode ? (
+                <>
+                  <label className="field" aria-label="Full name">
+                    <span className="field__icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="8" r="3.25" stroke="currentColor" strokeWidth="1.5" />
+                        <path
+                          d="M5.5 19C5.5 15.96 8.19 13.5 12 13.5C15.81 13.5 18.5 15.96 18.5 19"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </span>
+                    <input
+                      className="field__input"
+                      type="text"
+                      name="fullName"
+                      placeholder="Full name"
+                      value={formData.fullName}
+                      onChange={handleChange}
+                    />
+                  </label>
+
+                  <label className="field" aria-label="Phone number">
+                    <span className="field__icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none">
+                        <path
+                          d="M8.5 3.75H15.5C16.19 3.75 16.75 4.31 16.75 5V19C16.75 19.69 16.19 20.25 15.5 20.25H8.5C7.81 20.25 7.25 19.69 7.25 19V5C7.25 4.31 7.81 3.75 8.5 3.75Z"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                        />
+                        <path
+                          d="M10.5 17H13.5"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </span>
+                    <input
+                      className="field__input"
+                      type="tel"
+                      name="phone"
+                      placeholder="Phone number"
+                      value={formData.phone}
+                      onChange={handleChange}
+                    />
+                  </label>
+                </>
+              ) : null}
+
               <label className="field" aria-label="Email">
                 <span className="field__icon" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none">
@@ -140,7 +284,14 @@ function App() {
                     />
                   </svg>
                 </span>
-                <input className="field__input" type="email" placeholder="Email" />
+                <input
+                  className="field__input"
+                  type="email"
+                  name="email"
+                  placeholder="Email"
+                  value={formData.email}
+                  onChange={handleChange}
+                />
               </label>
 
               <label className="field" aria-label="Password">
@@ -170,8 +321,20 @@ function App() {
                     />
                   </svg>
                 </span>
-                <input className="field__input" type="password" placeholder="Password" />
-                <span className="field__action" aria-hidden="true">
+                <input
+                  className="field__input"
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  placeholder="Password"
+                  value={formData.password}
+                  onChange={handleChange}
+                />
+                <button
+                  className="field__action"
+                  type="button"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  onClick={() => setShowPassword((current) => !current)}
+                >
                   <svg viewBox="0 0 24 24" fill="none">
                     <path
                       d="M2.75 12C4.45 8.85 7.6 6 12 6C16.4 6 19.55 8.85 21.25 12C19.55 15.15 16.4 18 12 18C7.6 18 4.45 15.15 2.75 12Z"
@@ -182,18 +345,26 @@ function App() {
                     />
                     <circle cx="12" cy="12" r="2.25" stroke="currentColor" strokeWidth="1.5" />
                   </svg>
-                </span>
+                </button>
               </label>
 
-              <a className="login-panel__forgot" href="/">
-                Forgot password?
-              </a>
+              {isRegisterMode ? null : (
+                <a className="login-panel__forgot" href="/">
+                  Forgot password?
+                </a>
+              )}
             </div>
 
             <div className="login-panel__actions">
-              <button className="button button--primary" type="button">
-                Login
+              <button className="button button--primary" type="submit">
+                {isRegisterMode ? 'Sign up' : 'Login'}
               </button>
+
+              {submitState.status !== 'idle' ? (
+                <p className={`login-panel__message login-panel__message--${submitState.status}`}>
+                  {submitState.message}
+                </p>
+              ) : null}
 
               <div className="login-panel__divider" aria-hidden="true">
                 <span className="login-panel__divider-line" />
@@ -226,13 +397,32 @@ function App() {
               </div>
 
               <div className="login-panel__signup">
-                <p className="login-panel__signup-text">Have no account yet?</p>
-                <button className="button button--outline" type="button">
-                  Sign up
-                </button>
+                {isRegisterMode ? (
+                  <>
+                    <p className="login-panel__signup-text">Already have an account?</p>
+                    <button
+                      className="button button--outline"
+                      type="button"
+                      onClick={() => switchMode('login')}
+                    >
+                      Log in
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="login-panel__signup-text">Have no account yet?</p>
+                    <button
+                      className="button button--outline"
+                      type="button"
+                      onClick={() => switchMode('register')}
+                    >
+                      Sign up
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-          </section>
+          </form>
         </div>
       </section>
     </main>

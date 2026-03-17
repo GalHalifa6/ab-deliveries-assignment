@@ -38,15 +38,17 @@ function App() {
   const handleSubmit = async (event) => {
     event.preventDefault()
 
-    if (!isRegisterMode) {
+    if (!formData.email || !formData.password) {
       setSubmitState({
-        status: 'success',
-        message: 'Login flow UI is ready. Backend login can be connected next.',
+        status: 'error',
+        message: isRegisterMode
+          ? 'Please fill in all registration fields.'
+          : 'Please enter your email and password.',
       })
       return
     }
 
-    if (!formData.fullName || !formData.phone || !formData.email || !formData.password) {
+    if (isRegisterMode && (!formData.fullName || !formData.phone)) {
       setSubmitState({
         status: 'error',
         message: 'Please fill in all registration fields.',
@@ -60,12 +62,20 @@ function App() {
     })
 
     try {
-      const response = await fetch('http://127.0.0.1:8000/register', {
+      const endpoint = isRegisterMode ? 'register' : 'login'
+      const payload = isRegisterMode
+        ? formData
+        : {
+            email: formData.email,
+            password: formData.password,
+          }
+
+      const response = await fetch(`http://127.0.0.1:8000/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       })
 
       const data = await response.json()
@@ -76,15 +86,22 @@ function App() {
 
       setSubmitState({
         status: 'success',
-        message: data.message || 'Registration completed successfully.',
+        message: data.message || (isRegisterMode ? 'Registration completed successfully.' : 'Login completed successfully.'),
       })
 
-      setFormData({
-        fullName: '',
-        phone: '',
-        email: '',
-        password: '',
-      })
+      if (isRegisterMode) {
+        setFormData({
+          fullName: '',
+          phone: '',
+          email: '',
+          password: '',
+        })
+      } else {
+        setFormData((current) => ({
+          ...current,
+          password: '',
+        }))
+      }
     } catch (error) {
       setSubmitState({
         status: 'error',

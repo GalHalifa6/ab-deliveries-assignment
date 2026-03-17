@@ -96,9 +96,10 @@ The expected application flow is:
 2. React or React Native sends the data to the Python server.
 3. Python processes the request.
 4. Python saves the user data in MongoDB.
-5. After successful registration, the frontend requests a random toast message from a second server written in Node.js.
-6. The Node.js server connects to OpenAI and returns a random message.
-7. The frontend displays the toast message to the user.
+5. After successful registration, the Python server requests a random toast message from a second server written in Node.js.
+6. The Node.js server connects to OpenAI and returns a random message to the Python server.
+7. Python returns the registration result together with the toast content to the frontend.
+8. The frontend displays the toast message to the user.
 
 ## Development Note
 
@@ -109,6 +110,13 @@ For the initial implementation, it is practical to start without MongoDB and fir
 - The toast flow
 
 MongoDB integration can be added after the main local flow works correctly.
+
+Current progress note:
+
+- The web login/registration UI is implemented
+- The React web app is connected to the Python server
+- MongoDB is connected locally and currently stores registered users
+- Login now validates against stored MongoDB users
 
 ## Technical Requirements
 
@@ -151,8 +159,8 @@ Both clients should share the same product flow:
 - Render the form UI from the Figma
 - Collect user credentials
 - Submit data to the Python API
-- Request a toast message after successful registration
-- Display feedback to the user
+- Receive the final registration response from the Python API
+- Display the returned toast message to the user
 
 ### Main Backend
 
@@ -162,17 +170,19 @@ The `python-server/` service will be responsible for:
 - Validating submitted data
 - Handling the business logic
 - Saving users to MongoDB
+- Calling the Node.js AI service after successful registration
 - Returning success or error responses to the frontend
 
 Suggested initial endpoint:
 
 - `POST /register`
+- `POST /login`
 
 ### AI Toast Service
 
 The `node-ai/` service will be responsible for:
 
-- Receiving a request for a toast message
+- Receiving a request from the Python server for a toast message
 - Calling OpenAI
 - Returning a short random message suitable for a toast notification
 
@@ -243,4 +253,11 @@ The next development milestone is to scaffold these services:
 - `python-server/`
 - `node-ai/`
 
-After that, the first local end-to-end flow should be implemented before adding MongoDB, Azure deployment, and chatbot features.
+The first local web-to-Python-to-MongoDB flow is now working.
+
+The next immediate milestone is:
+
+- Add the `node-ai/` toast message service
+- Let the Python server call the toast service after successful registration
+- Return the toast content to the frontend from Python
+- Update the mobile app to follow the same registration flow

@@ -1,6 +1,42 @@
 import { useEffect, useState } from 'react'
 import illustrationImage from './assets/71b1ce93ba00a27b8ef291cb449e0a6ea47d2ba9.png'
 
+const AUTH_MODE_CONFIG = {
+  login: {
+    endpoint: 'login',
+    loadingMessage: 'Signing you in...',
+    emptyFieldsMessage: 'Please enter your email and password.',
+    successMessage: 'Login completed successfully.',
+    buildPayload: (formData) => ({
+      email: formData.email,
+      password: formData.password,
+    }),
+    resetFormData: (current) => ({
+      ...current,
+      password: '',
+    }),
+  },
+  register: {
+    endpoint: 'register',
+    loadingMessage: 'Creating your account...',
+    emptyFieldsMessage: 'Please fill in all registration fields.',
+    successMessage: 'Registration completed successfully.',
+    buildPayload: (formData) => ({
+      fullName: formData.fullName,
+      phone: formData.phone,
+      email: formData.email,
+      password: formData.password,
+    }),
+    resetFormData: () => ({
+      fullName: '',
+      phone: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    }),
+  },
+}
+
 function App() {
   const [mode, setMode] = useState('login')
   const [showPassword, setShowPassword] = useState(false)
@@ -19,6 +55,7 @@ function App() {
   const [toastMessage, setToastMessage] = useState('')
 
   const isRegisterMode = mode === 'register'
+  const currentModeConfig = AUTH_MODE_CONFIG[mode]
 
   useEffect(() => {
     if (!toastMessage) {
@@ -57,9 +94,7 @@ function App() {
     if (!formData.email || !formData.password) {
       setSubmitState({
         status: 'error',
-        message: isRegisterMode
-          ? 'Please fill in all registration fields.'
-          : 'Please enter your email and password.',
+        message: currentModeConfig.emptyFieldsMessage,
       })
       return
     }
@@ -67,7 +102,7 @@ function App() {
     if (isRegisterMode && (!formData.fullName || !formData.phone || !formData.confirmPassword)) {
       setSubmitState({
         status: 'error',
-        message: 'Please fill in all registration fields.',
+        message: AUTH_MODE_CONFIG.register.emptyFieldsMessage,
       })
       return
     }
@@ -82,17 +117,12 @@ function App() {
 
     setSubmitState({
       status: 'loading',
-      message: 'Creating your account...',
+      message: currentModeConfig.loadingMessage,
     })
 
     try {
-      const endpoint = isRegisterMode ? 'register' : 'login'
-      const payload = isRegisterMode
-        ? formData
-        : {
-            email: formData.email,
-            password: formData.password,
-          }
+      const endpoint = currentModeConfig.endpoint
+      const payload = currentModeConfig.buildPayload(formData)
 
       const response = await fetch(`http://127.0.0.1:8000/${endpoint}`, {
         method: 'POST',
@@ -110,27 +140,14 @@ function App() {
 
       setSubmitState({
         status: 'success',
-        message: data.message || (isRegisterMode ? 'Registration completed successfully.' : 'Login completed successfully.'),
+        message: data.message || currentModeConfig.successMessage,
       })
 
       if (isRegisterMode && data.toastMessage) {
         setToastMessage(data.toastMessage)
       }
 
-      if (isRegisterMode) {
-        setFormData({
-          fullName: '',
-          phone: '',
-          email: '',
-          password: '',
-          confirmPassword: '',
-        })
-      } else {
-        setFormData((current) => ({
-          ...current,
-          password: '',
-        }))
-      }
+      setFormData((current) => currentModeConfig.resetFormData(current))
     } catch (error) {
       setSubmitState({
         status: 'error',

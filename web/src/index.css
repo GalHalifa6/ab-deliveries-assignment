@@ -305,15 +305,30 @@ body {
   font-size: 14px;
   line-height: 17px;
   color: #394050;
+  background: #ffffff;
   outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .field__input::placeholder {
   color: #828282;
 }
 
+.field__input:hover:not(:disabled) {
+  border-color: #aab2d6;
+}
+
 .field__input:focus {
   border-color: #3949ab;
+  box-shadow: 0 0 0 3px rgba(57, 73, 171, 0.12);
+}
+
+.field__input:disabled {
+  background: #f5f6fb;
+  border-color: #dfe3f2;
+  color: #9aa1bd;
+  cursor: not-allowed;
 }
 
 .field__icon,
@@ -335,6 +350,7 @@ body {
   border: none;
   background: transparent;
   cursor: pointer;
+  transition: color 0.2s ease, opacity 0.2s ease;
 }
 
 .field__icon svg,
@@ -343,6 +359,15 @@ body {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+.field__action:hover:not(:disabled) {
+  color: #3949ab;
+}
+
+.field__action:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .login-panel__helper {
@@ -356,11 +381,32 @@ body {
 }
 
 .login-panel__forgot {
+  border: none;
+  padding: 0;
+  background: transparent;
   font-size: 14px;
   line-height: 17px;
   font-weight: 600;
-  color: #3949ab;
+  display: flex;
+  align-items: center;
+  text-align: right;
+  color: #5769d4;
   text-decoration: none;
+  transition: color 0.2s ease;
+  cursor: pointer;
+}
+
+.login-panel__forgot:hover:not(:disabled) {
+  color: #3949ab;
+}
+
+.login-panel__forgot:focus-visible:not(:disabled) {
+  color: #3949ab;
+}
+
+.login-panel__forgot:disabled {
+  color: #a1a8c7;
+  cursor: not-allowed;
 }
 
 .login-panel__actions {
@@ -434,6 +480,8 @@ body {
   line-height: 17px;
   cursor: pointer;
   background: transparent;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease,
+    box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
 .button--primary {
@@ -442,9 +490,42 @@ body {
   color: #ffffff;
 }
 
+.button--primary:hover:not(:disabled) {
+  background: #27368f;
+}
+
+.button--primary:focus-visible {
+  box-shadow: 0 0 0 3px rgba(57, 73, 171, 0.18);
+}
+
+.button--primary:disabled {
+  background: #b8bfdc;
+  color: #ffffff;
+  cursor: not-allowed;
+}
+
 .button--outline {
   border: 1px solid #3949ab;
   color: #3949ab;
+  background: #ffffff;
+}
+
+.button--outline:hover:not(:disabled) {
+  background: #f0f0f0;
+  border-color: #3949ab;
+  color: #3949ab;
+}
+
+.button--outline:focus-visible {
+  box-shadow: 0 0 0 3px rgba(57, 73, 171, 0.12);
+}
+
+.button--outline:disabled {
+  border-color: #3949ab;
+  color: #3949ab;
+  background: #ffffff;
+  cursor: not-allowed;
+  opacity: 0.4;
 }
 
 .button--half {

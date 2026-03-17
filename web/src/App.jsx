@@ -1,6 +1,21 @@
 import { useEffect, useState } from 'react'
 import illustrationImage from './assets/71b1ce93ba00a27b8ef291cb449e0a6ea47d2ba9.png'
 
+const API_BASE_URL = 'http://127.0.0.1:8000'
+
+const INITIAL_FORM_DATA = {
+  fullName: '',
+  phone: '',
+  email: '',
+  password: '',
+  confirmPassword: '',
+}
+
+const INITIAL_SUBMIT_STATE = {
+  status: 'idle',
+  message: '',
+}
+
 const AUTH_MODE_CONFIG = {
   login: {
     endpoint: 'login',
@@ -37,25 +52,160 @@ const AUTH_MODE_CONFIG = {
   },
 }
 
+function PersonIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="8" r="3.25" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M5.5 19C5.5 15.96 8.19 13.5 12 13.5C15.81 13.5 18.5 15.96 18.5 19"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function PhoneIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none">
+      <path
+        d="M8.5 3.75H15.5C16.19 3.75 16.75 4.31 16.75 5V19C16.75 19.69 16.19 20.25 15.5 20.25H8.5C7.81 20.25 7.25 19.69 7.25 19V5C7.25 4.31 7.81 3.75 8.5 3.75Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
+      <path d="M10.5 17H13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function EmailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none">
+      <rect x="3.5" y="5.5" width="17" height="13" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M4.5 6.5L11.16 11.26C11.67 11.62 12.35 11.62 12.86 11.26L19.5 6.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none">
+      <path
+        d="M8 10V7.5C8 5.57 9.57 4 11.5 4C13.43 4 15 5.57 15 7.5V10"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <rect x="5" y="10" width="13" height="10" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M11.5 14V16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none">
+      <path
+        d="M2.75 12C4.45 8.85 7.6 6 12 6C16.4 6 19.55 8.85 21.25 12C19.55 15.15 16.4 18 12 18C7.6 18 4.45 15.15 2.75 12Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="12" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  )
+}
+
+function TextField({ ariaLabel, icon, ...inputProps }) {
+  return (
+    <label className="field" aria-label={ariaLabel}>
+      <span className="field__icon" aria-hidden="true">
+        {icon}
+      </span>
+      <input className="field__input" {...inputProps} />
+    </label>
+  )
+}
+
+function PasswordField({
+  ariaLabel,
+  name,
+  placeholder,
+  value,
+  onChange,
+  disabled,
+  isVisible,
+  onToggleVisibility,
+}) {
+  return (
+    <label className="field" aria-label={ariaLabel}>
+      <span className="field__icon" aria-hidden="true">
+        <LockIcon />
+      </span>
+      <input
+        className="field__input"
+        type={isVisible ? 'text' : 'password'}
+        name={name}
+        placeholder={placeholder}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+      />
+      <button
+        className="field__action"
+        type="button"
+        aria-label={isVisible ? 'Hide password' : 'Show password'}
+        onClick={onToggleVisibility}
+        disabled={disabled}
+      >
+        <EyeIcon />
+      </button>
+    </label>
+  )
+}
+
+function SocialAuthButton({ label, disabled, children }) {
+  return (
+    <button className="button button--outline button--half" type="button" disabled={disabled}>
+      <span className="button__icon" aria-hidden="true">
+        {children}
+      </span>
+      <span>{label}</span>
+    </button>
+  )
+}
+
 function App() {
   const [mode, setMode] = useState('login')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [formData, setFormData] = useState({
-    fullName: '',
-    phone: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  })
-  const [submitState, setSubmitState] = useState({
-    status: 'idle',
-    message: '',
-  })
+  const [formData, setFormData] = useState(INITIAL_FORM_DATA)
+  const [submitState, setSubmitState] = useState(INITIAL_SUBMIT_STATE)
   const [toastMessage, setToastMessage] = useState('')
 
   const isRegisterMode = mode === 'register'
   const currentModeConfig = AUTH_MODE_CONFIG[mode]
+  const isSubmitting = submitState.status === 'loading'
+  const hasEmailValue = Boolean(formData.email)
+  const isLoginFormValid = Boolean(formData.email && formData.password)
+  const isRegisterFormValid = Boolean(
+    formData.fullName &&
+      formData.phone &&
+      formData.email &&
+      formData.password &&
+      formData.confirmPassword &&
+      formData.password === formData.confirmPassword
+  )
+  const isSubmitDisabled = isSubmitting || (isRegisterMode ? !isRegisterFormValid : !isLoginFormValid)
 
   useEffect(() => {
     if (!toastMessage) {
@@ -82,10 +232,7 @@ function App() {
     setMode(nextMode)
     setShowPassword(false)
     setShowConfirmPassword(false)
-    setSubmitState({
-      status: 'idle',
-      message: '',
-    })
+    setSubmitState(INITIAL_SUBMIT_STATE)
   }
 
   const handleSubmit = async (event) => {
@@ -124,7 +271,7 @@ function App() {
       const endpoint = currentModeConfig.endpoint
       const payload = currentModeConfig.buildPayload(formData)
 
-      const response = await fetch(`http://127.0.0.1:8000/${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -282,207 +429,75 @@ function App() {
             <div className="login-panel__inputs">
               {isRegisterMode ? (
                 <>
-                  <label className="field" aria-label="Full name">
-                    <span className="field__icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="8" r="3.25" stroke="currentColor" strokeWidth="1.5" />
-                        <path
-                          d="M5.5 19C5.5 15.96 8.19 13.5 12 13.5C15.81 13.5 18.5 15.96 18.5 19"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </span>
-                    <input
-                      className="field__input"
-                      type="text"
-                      name="fullName"
-                      placeholder="Full name"
-                      value={formData.fullName}
-                      onChange={handleChange}
-                    />
-                  </label>
+                  <TextField
+                    ariaLabel="Full name"
+                    icon={<PersonIcon />}
+                    type="text"
+                    name="fullName"
+                    placeholder="Full name"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                  />
 
-                  <label className="field" aria-label="Phone number">
-                    <span className="field__icon" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" fill="none">
-                        <path
-                          d="M8.5 3.75H15.5C16.19 3.75 16.75 4.31 16.75 5V19C16.75 19.69 16.19 20.25 15.5 20.25H8.5C7.81 20.25 7.25 19.69 7.25 19V5C7.25 4.31 7.81 3.75 8.5 3.75Z"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                        />
-                        <path
-                          d="M10.5 17H13.5"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    </span>
-                    <input
-                      className="field__input"
-                      type="tel"
-                      name="phone"
-                      placeholder="Phone number"
-                      value={formData.phone}
-                      onChange={handleChange}
-                    />
-                  </label>
+                  <TextField
+                    ariaLabel="Phone number"
+                    icon={<PhoneIcon />}
+                    type="tel"
+                    name="phone"
+                    placeholder="Phone number"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    disabled={isSubmitting}
+                  />
                 </>
               ) : null}
 
-              <label className="field" aria-label="Email">
-                <span className="field__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <rect
-                      x="3.5"
-                      y="5.5"
-                      width="17"
-                      height="13"
-                      rx="2"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    />
-                    <path
-                      d="M4.5 6.5L11.16 11.26C11.67 11.62 12.35 11.62 12.86 11.26L19.5 6.5"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </span>
-                <input
-                  className="field__input"
-                  type="email"
-                  name="email"
-                  placeholder="Email"
-                  value={formData.email}
-                  onChange={handleChange}
-                />
-              </label>
+              <TextField
+                ariaLabel="Email"
+                icon={<EmailIcon />}
+                type="email"
+                name="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={handleChange}
+                disabled={isSubmitting}
+              />
 
-              <label className="field" aria-label="Password">
-                <span className="field__icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M8 10V7.5C8 5.57 9.57 4 11.5 4C13.43 4 15 5.57 15 7.5V10"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <rect
-                      x="5"
-                      y="10"
-                      width="13"
-                      height="10"
-                      rx="2"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                    />
-                    <path
-                      d="M11.5 14V16"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </span>
-                <input
-                  className="field__input"
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  placeholder="Password"
-                  value={formData.password}
-                  onChange={handleChange}
-                />
-                <button
-                  className="field__action"
-                  type="button"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  onClick={() => setShowPassword((current) => !current)}
-                >
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M2.75 12C4.45 8.85 7.6 6 12 6C16.4 6 19.55 8.85 21.25 12C19.55 15.15 16.4 18 12 18C7.6 18 4.45 15.15 2.75 12Z"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <circle cx="12" cy="12" r="2.25" stroke="currentColor" strokeWidth="1.5" />
-                  </svg>
-                </button>
-              </label>
+              <PasswordField
+                ariaLabel="Password"
+                name="password"
+                placeholder="Password"
+                value={formData.password}
+                onChange={handleChange}
+                disabled={isSubmitting}
+                isVisible={showPassword}
+                onToggleVisibility={() => setShowPassword((current) => !current)}
+              />
 
               {isRegisterMode ? (
-                <label className="field" aria-label="Repeat password">
-                  <span className="field__icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none">
-                      <path
-                        d="M8 10V7.5C8 5.57 9.57 4 11.5 4C13.43 4 15 5.57 15 7.5V10"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <rect
-                        x="5"
-                        y="10"
-                        width="13"
-                        height="10"
-                        rx="2"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                      />
-                      <path
-                        d="M11.5 14V16"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  </span>
-                  <input
-                    className="field__input"
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    name="confirmPassword"
-                    placeholder="Repeat password"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                  />
-                  <button
-                    className="field__action"
-                    type="button"
-                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-                    onClick={() => setShowConfirmPassword((current) => !current)}
-                  >
-                    <svg viewBox="0 0 24 24" fill="none">
-                      <path
-                        d="M2.75 12C4.45 8.85 7.6 6 12 6C16.4 6 19.55 8.85 21.25 12C19.55 15.15 16.4 18 12 18C7.6 18 4.45 15.15 2.75 12Z"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <circle cx="12" cy="12" r="2.25" stroke="currentColor" strokeWidth="1.5" />
-                    </svg>
-                  </button>
-                </label>
+                <PasswordField
+                  ariaLabel="Repeat password"
+                  name="confirmPassword"
+                  placeholder="Repeat password"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  disabled={isSubmitting}
+                  isVisible={showConfirmPassword}
+                  onToggleVisibility={() => setShowConfirmPassword((current) => !current)}
+                />
               ) : null}
 
               {isRegisterMode ? null : (
-                <a className="login-panel__forgot" href="/">
+                <button className="login-panel__forgot" type="button" disabled={!hasEmailValue || isSubmitting}>
                   Forgot password?
-                </a>
+                </button>
               )}
             </div>
 
             <div className="login-panel__actions">
-              <button className="button button--primary" type="submit">
-                {isRegisterMode ? 'Sign up' : 'Login'}
+              <button className="button button--primary" type="submit" disabled={isSubmitDisabled}>
+                {isRegisterMode ? 'Register' : 'Login'}
               </button>
 
               {submitState.status !== 'idle' ? (
@@ -498,27 +513,21 @@ function App() {
               </div>
 
               <div className="login-panel__socials">
-                <button className="button button--outline button--half" type="button">
-                  <span className="button__icon" aria-hidden="true">
-                    <svg viewBox="0 0 18 18" fill="none">
-                      <path d="M3.08 9.11L2.54 11.11L0.58 11.15C0.2 10.04 0 8.84 0 7.5C0 6.2 0.19 5.02 0.55 3.94L2.3 4.26L3.07 5.99C2.91 6.46 2.82 6.97 2.82 7.5C2.82 8.08 2.92 8.62 3.08 9.11Z" fill="#FBBB00" />
-                      <path d="M17.3 6.11C17.42 6.58 17.49 7.08 17.49 7.5C17.49 8 17.44 8.49 17.33 8.97C16.95 10.66 15.98 12.13 14.61 13.18L12.38 13.07L12.06 11.08C12.97 10.55 13.68 9.76 14.03 8.97H9.23V6.11H14.1H17.3Z" fill="#518EF8" />
-                      <path d="M14.61 13.18L14.61 13.18C13.38 14.17 11.84 14.76 10.14 14.76C7.36 14.76 4.95 13.21 3.73 11.15L6.65 8.99C7.24 10.58 8.75 11.72 10.53 11.72C11.3 11.72 12.03 11.52 12.63 11.08L14.61 13.18Z" fill="#28B446" />
-                      <path d="M14.73 2.18L11.81 4.33C11.19 3.87 10.43 3.61 9.61 3.61C7.8 3.61 6.26 4.79 5.69 6.43L2.78 4.28H2.77C4 1.97 6.48 0.36 9.39 0.36C11.2 0.36 12.85 0.99 14.73 2.18Z" fill="#F14336" />
-                    </svg>
-                  </span>
-                  <span>Google</span>
-                </button>
+                <SocialAuthButton disabled={isSubmitting} label="Google">
+                  <svg viewBox="0 0 18 18" fill="none">
+                    <path d="M3.08 9.11L2.54 11.11L0.58 11.15C0.2 10.04 0 8.84 0 7.5C0 6.2 0.19 5.02 0.55 3.94L2.3 4.26L3.07 5.99C2.91 6.46 2.82 6.97 2.82 7.5C2.82 8.08 2.92 8.62 3.08 9.11Z" fill="#FBBB00" />
+                    <path d="M17.3 6.11C17.42 6.58 17.49 7.08 17.49 7.5C17.49 8 17.44 8.49 17.33 8.97C16.95 10.66 15.98 12.13 14.61 13.18L12.38 13.07L12.06 11.08C12.97 10.55 13.68 9.76 14.03 8.97H9.23V6.11H14.1H17.3Z" fill="#518EF8" />
+                    <path d="M14.61 13.18L14.61 13.18C13.38 14.17 11.84 14.76 10.14 14.76C7.36 14.76 4.95 13.21 3.73 11.15L6.65 8.99C7.24 10.58 8.75 11.72 10.53 11.72C11.3 11.72 12.03 11.52 12.63 11.08L14.61 13.18Z" fill="#28B446" />
+                    <path d="M14.73 2.18L11.81 4.33C11.19 3.87 10.43 3.61 9.61 3.61C7.8 3.61 6.26 4.79 5.69 6.43L2.78 4.28H2.77C4 1.97 6.48 0.36 9.39 0.36C11.2 0.36 12.85 0.99 14.73 2.18Z" fill="#F14336" />
+                  </svg>
+                </SocialAuthButton>
 
-                <button className="button button--outline button--half" type="button">
-                  <span className="button__icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none">
-                      <path d="M24 12.06C24 5.4 18.63 0 12 0C5.37 0 0 5.4 0 12.06C0 18.08 4.39 23.08 10.13 24V15.56H7.08V12.06H10.13V9.39C10.13 6.37 11.92 4.69 14.66 4.69C15.97 4.69 17.34 4.93 17.34 4.93V7.9H15.83C14.34 7.9 13.88 8.83 13.88 9.78V12.06H17.2L16.67 15.56H13.88V24C19.61 23.08 24 18.08 24 12.06Z" fill="#1877F2" />
-                      <path d="M16.67 15.56L17.2 12.06H13.88V9.78C13.88 8.83 14.34 7.9 15.83 7.9H17.34V4.93C17.34 4.93 15.97 4.69 14.66 4.69C11.92 4.69 10.13 6.37 10.13 9.39V12.06H7.08V15.56H10.13V24C11.37 24.2 12.63 24.2 13.88 24V15.56H16.67Z" fill="white" />
-                    </svg>
-                  </span>
-                  <span>Facebook</span>
-                </button>
+                <SocialAuthButton disabled={isSubmitting} label="Facebook">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M24 12.06C24 5.4 18.63 0 12 0C5.37 0 0 5.4 0 12.06C0 18.08 4.39 23.08 10.13 24V15.56H7.08V12.06H10.13V9.39C10.13 6.37 11.92 4.69 14.66 4.69C15.97 4.69 17.34 4.93 17.34 4.93V7.9H15.83C14.34 7.9 13.88 8.83 13.88 9.78V12.06H17.2L16.67 15.56H13.88V24C19.61 23.08 24 18.08 24 12.06Z" fill="#1877F2" />
+                    <path d="M16.67 15.56L17.2 12.06H13.88V9.78C13.88 8.83 14.34 7.9 15.83 7.9H17.34V4.93C17.34 4.93 15.97 4.69 14.66 4.69C11.92 4.69 10.13 6.37 10.13 9.39V12.06H7.08V15.56H10.13V24C11.37 24.2 12.63 24.2 13.88 24V15.56H16.67Z" fill="white" />
+                  </svg>
+                </SocialAuthButton>
               </div>
 
               <div className="login-panel__signup">
@@ -529,6 +538,7 @@ function App() {
                       className="button button--outline"
                       type="button"
                       onClick={() => switchMode('login')}
+                      disabled={isSubmitting}
                     >
                       Log in
                     </button>
@@ -540,8 +550,9 @@ function App() {
                       className="button button--outline"
                       type="button"
                       onClick={() => switchMode('register')}
+                      disabled={isSubmitting}
                     >
-                      Sign up
+                      Register
                     </button>
                   </>
                 )}

@@ -120,6 +120,8 @@ Current progress note:
 - The `node-ai/` service is scaffolded locally
 - The Python registration flow now requests a toast message from `node-ai/`
 - The web frontend displays the returned toast after registration
+- A React Native mobile scaffold is now added in `mobile/`
+- The mobile auth screen mirrors the same login/register flow structure as the web app
 
 ## Technical Requirements
 
@@ -234,7 +236,7 @@ To keep delivery organized and reduce risk, the recommended order is:
 5. Create the Node.js AI toast service
 6. Connect the toast flow after successful registration
 7. Add MongoDB integration
-8. Build the mobile UI
+8. Test and polish the mobile UI on a physical device
 9. Prepare Azure deployment
 10. Implement the chatbot as a separate second phase
 
@@ -266,6 +268,7 @@ The first local web-to-Python-to-MongoDB flow is now working.
 
 The next immediate milestone is:
 
+- Test the mobile app against the local Python backend on a physical device
+- Finish mobile visual polish and environment configuration
 - Replace the mock `node-ai/` toast messages with OpenAI-generated content
-- Update the mobile app to follow the same registration flow
 - Prepare the backend services for Azure deployment

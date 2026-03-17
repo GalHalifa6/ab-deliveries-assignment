@@ -78,12 +78,14 @@ def register(payload: RegistrationRequest):
         raise HTTPException(status_code=409, detail="A user with this email already exists.")
 
     hashed_password = pwd_context.hash(payload.password)
+    toast_message = fetch_toast_message()
 
     user_document = {
         "fullName": payload.fullName.strip(),
         "phone": payload.phone.strip(),
         "email": payload.email.lower(),
         "passwordHash": hashed_password,
+        "toastMessage": toast_message,
     }
 
     try:
@@ -91,7 +93,7 @@ def register(payload: RegistrationRequest):
     except PyMongoError as error:
         raise HTTPException(status_code=500, detail=f"Database error: {error}") from error
 
-    toast_message = fetch_toast_message()
+    print(f"Toast message sent to user {payload.email}: {toast_message}")
 
     return {
         "success": True,

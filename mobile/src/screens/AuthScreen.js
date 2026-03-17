@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   socialRow: {
     width: '100%',
     flexDirection: 'row',
-    gap: 8,
+    justifyContent: 'space-between',
   },
   switchSection: {
     width: '100%',

@@ -122,6 +122,10 @@ Current progress note:
 - The web frontend displays the returned toast after registration
 - A React Native mobile scaffold is now added in `mobile/`
 - The mobile auth screen mirrors the same login/register flow structure as the web app
+- The mobile app is now running in Expo Go on a physical iPhone
+- The mobile Google/Facebook buttons and logo were refined toward the provided Figma
+- The Python server now logs the toast message shown after registration
+- MongoDB now stores the toast message assigned to each registered user
 
 ## Technical Requirements
 
@@ -176,6 +180,8 @@ The `python-server/` service will be responsible for:
 - Handling the business logic
 - Saving users to MongoDB
 - Calling the Node.js AI service after successful registration
+- Saving the returned toast message with the registered user document
+- Logging the toast message in the server terminal for local visibility
 - Returning success or error responses to the frontend
 
 Suggested initial endpoint:
@@ -207,6 +213,7 @@ MongoDB will store registration data such as:
 
 - Email
 - Password hash or secure credential representation
+- Toast message assigned after registration
 - Created date
 - Optional profile metadata
 
@@ -268,7 +275,6 @@ The first local web-to-Python-to-MongoDB flow is now working.
 
 The next immediate milestone is:
 
-- Test the mobile app against the local Python backend on a physical device
-- Finish mobile visual polish and environment configuration
+- Finish the remaining mobile visual polish and environment configuration
 - Replace the mock `node-ai/` toast messages with OpenAI-generated content
 - Prepare the backend services for Azure deployment

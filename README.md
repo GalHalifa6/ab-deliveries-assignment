@@ -18,13 +18,13 @@ Completed:
 - Project structure and documentation created
 - Web app scaffolded with Vite + React
 - Figma-inspired web login/registration UI implemented in `web/`
-- Web registration form connected to a mocked Python `POST /register` endpoint
+- Web registration and login flows connected to the Python server
 - Python backend scaffolded with FastAPI in `python-server/`
+- MongoDB connected locally and used for registration/login persistence
+- Duplicate email protection implemented in the backend
 
 Still pending:
 
-- Python backend API
-- MongoDB integration
 - Node.js AI toast service
 - React Native mobile app
 - Azure deployment
@@ -35,9 +35,10 @@ Still pending:
 1. User submits the registration form from web or mobile.
 2. The frontend sends the request to the Python server.
 3. The Python server validates the data and stores it in MongoDB.
-4. After successful registration, the frontend requests a toast message from the Node.js AI service.
-5. The AI service calls OpenAI and returns a short message.
-6. The frontend displays the message as a toast.
+4. After successful registration, the Python server requests a toast message from the Node.js AI service.
+5. The AI service calls OpenAI and returns a short message to the Python server.
+6. The Python server returns the registration result and toast content to the frontend.
+7. The frontend displays the message as a toast.
 
 ## Design Note
 
@@ -53,9 +54,10 @@ npm run dev
 
 ## Next Step
 
-The next step is to replace the mocked backend behavior with real persistence and continue the flow:
+The next step is to continue the post-registration flow:
 
-1. Save registrations in MongoDB
-2. Add the Node.js AI toast service
-3. Trigger a toast after successful registration
+1. Add the Node.js AI toast service
+2. Let the Python server request the toast message after successful registration
+3. Return the toast content from Python to the frontend
 4. Build the matching React Native mobile flow
+5. Prepare Azure deployment for the backend services

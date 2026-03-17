@@ -9,6 +9,7 @@ function App() {
     phone: '',
     email: '',
     password: '',
+    confirmPassword: '',
   })
   const [submitState, setSubmitState] = useState({
     status: 'idle',
@@ -48,10 +49,18 @@ function App() {
       return
     }
 
-    if (isRegisterMode && (!formData.fullName || !formData.phone)) {
+    if (isRegisterMode && (!formData.fullName || !formData.phone || !formData.confirmPassword)) {
       setSubmitState({
         status: 'error',
         message: 'Please fill in all registration fields.',
+      })
+      return
+    }
+
+    if (isRegisterMode && formData.password !== formData.confirmPassword) {
+      setSubmitState({
+        status: 'error',
+        message: 'Passwords do not match.',
       })
       return
     }
@@ -95,6 +104,7 @@ function App() {
           phone: '',
           email: '',
           password: '',
+          confirmPassword: '',
         })
       } else {
         setFormData((current) => ({
@@ -364,6 +374,62 @@ function App() {
                   </svg>
                 </button>
               </label>
+
+              {isRegisterMode ? (
+                <label className="field" aria-label="Repeat password">
+                  <span className="field__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M8 10V7.5C8 5.57 9.57 4 11.5 4C13.43 4 15 5.57 15 7.5V10"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <rect
+                        x="5"
+                        y="10"
+                        width="13"
+                        height="10"
+                        rx="2"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                      />
+                      <path
+                        d="M11.5 14V16"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </span>
+                  <input
+                    className="field__input"
+                    type={showPassword ? 'text' : 'password'}
+                    name="confirmPassword"
+                    placeholder="Repeat password"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                  />
+                  <button
+                    className="field__action"
+                    type="button"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowPassword((current) => !current)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M2.75 12C4.45 8.85 7.6 6 12 6C16.4 6 19.55 8.85 21.25 12C19.55 15.15 16.4 18 12 18C7.6 18 4.45 15.15 2.75 12Z"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <circle cx="12" cy="12" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+                    </svg>
+                  </button>
+                </label>
+              ) : null}
 
               {isRegisterMode ? null : (
                 <a className="login-panel__forgot" href="/">

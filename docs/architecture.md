@@ -117,6 +117,9 @@ Current progress note:
 - The React web app is connected to the Python server
 - MongoDB is connected locally and currently stores registered users
 - Login now validates against stored MongoDB users
+- The `node-ai/` service is scaffolded locally
+- The Python registration flow now requests a toast message from `node-ai/`
+- The web frontend displays the returned toast after registration
 
 ## Technical Requirements
 
@@ -190,6 +193,12 @@ Suggested initial endpoint:
 
 - `GET /toast-message`
 
+Current implementation note:
+
+- A local Node.js scaffold is already in place
+- The current version returns mock random messages
+- OpenAI integration is the next upgrade for this service
+
 ### Database Layer
 
 MongoDB will store registration data such as:
@@ -257,7 +266,6 @@ The first local web-to-Python-to-MongoDB flow is now working.
 
 The next immediate milestone is:
 
-- Add the `node-ai/` toast message service
-- Let the Python server call the toast service after successful registration
-- Return the toast content to the frontend from Python
+- Replace the mock `node-ai/` toast messages with OpenAI-generated content
 - Update the mobile app to follow the same registration flow
+- Prepare the backend services for Azure deployment

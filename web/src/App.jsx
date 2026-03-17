@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import illustrationImage from './assets/71b1ce93ba00a27b8ef291cb449e0a6ea47d2ba9.png'
 
 function App() {
   const [mode, setMode] = useState('login')
   const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -15,8 +16,21 @@ function App() {
     status: 'idle',
     message: '',
   })
+  const [toastMessage, setToastMessage] = useState('')
 
   const isRegisterMode = mode === 'register'
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setToastMessage('')
+    }, 4000)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [toastMessage])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -30,6 +44,7 @@ function App() {
   const switchMode = (nextMode) => {
     setMode(nextMode)
     setShowPassword(false)
+    setShowConfirmPassword(false)
     setSubmitState({
       status: 'idle',
       message: '',
@@ -98,6 +113,10 @@ function App() {
         message: data.message || (isRegisterMode ? 'Registration completed successfully.' : 'Login completed successfully.'),
       })
 
+      if (isRegisterMode && data.toastMessage) {
+        setToastMessage(data.toastMessage)
+      }
+
       if (isRegisterMode) {
         setFormData({
           fullName: '',
@@ -122,6 +141,12 @@ function App() {
 
   return (
     <main className="page">
+      {toastMessage ? (
+        <div className="toast" role="status" aria-live="polite">
+          {toastMessage}
+        </div>
+      ) : null}
+
       <section className="auth-card">
         <div className="auth-card__left">
           <div className="hero-orb" aria-hidden="true">
@@ -405,7 +430,7 @@ function App() {
                   </span>
                   <input
                     className="field__input"
-                    type={showPassword ? 'text' : 'password'}
+                    type={showConfirmPassword ? 'text' : 'password'}
                     name="confirmPassword"
                     placeholder="Repeat password"
                     value={formData.confirmPassword}
@@ -414,8 +439,8 @@ function App() {
                   <button
                     className="field__action"
                     type="button"
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    onClick={() => setShowPassword((current) => !current)}
+                    aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowConfirmPassword((current) => !current)}
                   >
                     <svg viewBox="0 0 24 24" fill="none">
                       <path

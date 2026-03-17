@@ -26,6 +26,22 @@ body {
   background: #5f6dd9;
 }
 
+.toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  max-width: 320px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: #ffffff;
+  color: #3949ab;
+  box-shadow: 0 16px 40px rgba(18, 28, 84, 0.22);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  z-index: 10;
+}
+
 .auth-card {
   width: min(1218px, 100%);
   min-height: 743px;
@@ -533,5 +549,11 @@ body {
 
   .button--half {
     width: 100%;
+  }
+
+  .toast {
+    left: 24px;
+    right: 24px;
+    max-width: none;
   }
 }

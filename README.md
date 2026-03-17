@@ -22,10 +22,13 @@ Completed:
 - Python backend scaffolded with FastAPI in `python-server/`
 - MongoDB connected locally and used for registration/login persistence
 - Duplicate email protection implemented in the backend
+- `node-ai/` scaffolded with a Node.js toast-message service
+- Python registration flow connected to the Node.js toast service
+- Web frontend displays the toast after successful registration
 
 Still pending:
 
-- Node.js AI toast service
+- OpenAI integration inside the Node.js toast service
 - React Native mobile app
 - Azure deployment
 - Hebrew AI chatbot and conversation logging
@@ -56,8 +59,7 @@ npm run dev
 
 The next step is to continue the post-registration flow:
 
-1. Add the Node.js AI toast service
-2. Let the Python server request the toast message after successful registration
-3. Return the toast content from Python to the frontend
-4. Build the matching React Native mobile flow
-5. Prepare Azure deployment for the backend services
+1. Replace the mock Node.js toast messages with OpenAI-generated messages
+2. Build the matching React Native mobile flow
+3. Prepare Azure deployment for the backend services
+4. Continue with the Hebrew AI chatbot and conversation logging

@@ -1,4 +1,6 @@
 import os
+from urllib.error import URLError
+from urllib.request import urlopen
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -33,10 +35,30 @@ app.add_middleware(
 
 mongodb_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 mongodb_name = os.getenv("MONGODB_DB_NAME", "ab_deliveries")
+node_ai_url = os.getenv("NODE_AI_URL", "http://127.0.0.1:3001/toast-message")
 
 client = MongoClient(mongodb_uri)
 database = client[mongodb_name]
 users_collection = database["users"]
+
+
+def fetch_toast_message():
+    fallback_message = "Run the node-ai (Node.js) server first to see the toast messages."
+
+    try:
+        with urlopen(node_ai_url, timeout=3) as response:
+            payload = response.read().decode("utf-8")
+    except URLError:
+        return fallback_message
+
+    import json
+
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError:
+        return fallback_message
+
+    return data.get("toastMessage", fallback_message)
 
 
 @app.get("/health")
@@ -69,9 +91,12 @@ def register(payload: RegistrationRequest):
     except PyMongoError as error:
         raise HTTPException(status_code=500, detail=f"Database error: {error}") from error
 
+    toast_message = fetch_toast_message()
+
     return {
         "success": True,
         "message": f"Welcome aboard, {payload.fullName}! Your registration was saved.",
+        "toastMessage": toast_message,
         "user": {
             "fullName": payload.fullName,
             "phone": payload.phone,

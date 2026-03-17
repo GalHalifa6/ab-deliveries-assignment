@@ -25,11 +25,13 @@ Completed:
 - `node-ai/` scaffolded with a Node.js toast-message service
 - Python registration flow connected to the Node.js toast service
 - Web frontend displays the toast after successful registration
+- React Native mobile scaffold created in `mobile/`
+- Mobile login/register screen added with the same auth flow structure as web
 
 Still pending:
 
 - OpenAI integration inside the Node.js toast service
-- React Native mobile app
+- Final mobile visual polish and device testing
 - Azure deployment
 - Hebrew AI chatbot and conversation logging
 
@@ -59,7 +61,7 @@ npm run dev
 
 The next step is to continue the post-registration flow:
 
-1. Replace the mock Node.js toast messages with OpenAI-generated messages
-2. Build the matching React Native mobile flow
+1. Test the React Native mobile app on a physical device and finish mobile polish
+2. Replace the mock Node.js toast messages with OpenAI-generated messages
 3. Prepare Azure deployment for the backend services
 4. Continue with the Hebrew AI chatbot and conversation logging

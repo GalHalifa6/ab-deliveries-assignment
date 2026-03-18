@@ -34,6 +34,9 @@ Completed:
 - Environment-based API configuration is now added for web, mobile, Python, and Node services
 - Health endpoints are now available on both backend services
 - Docker support is now added for `python-server/` and `node-ai/`
+- Backend and web automated tests are now added
+- A root PowerShell test runner is now available in `scripts/run-tests.ps1`
+- GitHub Actions CI now runs Python, Node AI, and web tests on every push and pull request
 
 Still pending:
 
@@ -87,6 +90,12 @@ Use those files to create local `.env` files before deployment.
 docker compose up --build
 ```
 
+This starts the Dockerized backend services defined in:
+
+- `python-server/Dockerfile`
+- `node-ai/Dockerfile`
+- `docker-compose.yml`
+
 ## Run Tests
 
 Run Python server tests:
@@ -113,20 +122,59 @@ npm test
 Run all test suites from the repository root in PowerShell:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/run-tests.ps1
+.\scripts\run-tests.ps1
 ```
 
 Run one suite at a time:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/run-tests.ps1 -Suite python
-powershell -ExecutionPolicy Bypass -File scripts/run-tests.ps1 -Suite node
-powershell -ExecutionPolicy Bypass -File scripts/run-tests.ps1 -Suite web
+.\scripts\run-tests.ps1 -Suite python
+.\scripts\run-tests.ps1 -Suite node
+.\scripts\run-tests.ps1 -Suite web
 ```
 
-CI:
+Current automated coverage:
 
-- GitHub Actions now runs the Python, Node, and web tests automatically on pushes and pull requests
+- `python-server/`
+  - health endpoint integration test
+  - register endpoint integration tests
+  - login endpoint integration tests
+  - toast-fetch unit tests
+- `node-ai/`
+  - health endpoint integration test
+  - toast-message endpoint integration test
+  - CORS preflight and 404 tests
+  - random message selection unit test
+- `web/`
+  - auth mode switching UI test
+  - register validation UI test
+  - successful register + toast rendering UI test
+
+## CI/CD
+
+GitHub Actions is configured in:
+
+- `.github/workflows/tests.yml`
+
+What it does:
+
+- checks out the repository
+- installs Python and runs the `python-server` tests
+- installs Node dependencies for `node-ai` and runs its tests
+- installs Node dependencies for `web` and runs its tests
+
+You do not need to run the workflow file manually. After you commit and push, GitHub runs it automatically in the repository `Actions` tab.
+
+## Deployment Readiness
+
+The project is now prepared for deployment-oriented configuration:
+
+- all important service settings are env-based
+- local `.env` files stay private and are gitignored
+- `.env.example` files document the required configuration
+- backend services expose `/health`
+- Docker support is available for both backend services
+- local and CI test flows are in place before Azure deployment
 
 ## Next Step
 

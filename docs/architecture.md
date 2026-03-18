@@ -129,6 +129,9 @@ Current progress note:
 - Environment-based configuration is now in place for local vs production API URLs
 - Docker support is now added for the Python and Node backend services
 - Health endpoints are available on both backend services
+- Automated backend and web tests are now in place
+- A local root test runner script is available in `scripts/run-tests.ps1`
+- GitHub Actions now runs the Python, Node AI, and web test suites automatically
 
 ## Technical Requirements
 
@@ -184,7 +187,7 @@ The `python-server/` service will be responsible for:
 - Saving users to MongoDB
 - Calling the Node.js AI service after successful registration
 - Saving the returned toast message with the registered user document
-- Logging the toast message in the server terminal for local visibility
+- Logging registration/login activity using Python logging
 - Returning success or error responses to the frontend
 - Reading deployment settings from environment variables
 
@@ -211,6 +214,7 @@ Current implementation note:
 - A local Node.js scaffold is already in place
 - The current version returns mock random messages
 - OpenAI integration is the next upgrade for this service
+- The service is structured for local testing and CI execution
 
 ### Database Layer
 
@@ -233,6 +237,32 @@ Deployment planning should include:
 - MongoDB connection string configuration
 - Production API URLs for frontend clients
 - Optional container-based deployment using the added Dockerfiles and `docker-compose.yml`
+- CI validation through GitHub Actions before deployment
+
+### Testing Strategy
+
+The current project test strategy is split by service:
+
+- `python-server/tests/`
+  - FastAPI integration tests for `/health`, `/register`, and `/login`
+  - unit tests for toast-fetch behavior and fallback handling
+- `node-ai/tests/`
+  - service tests for `/health`, `/toast-message`, CORS preflight, and 404 responses
+  - unit-level coverage for random toast message selection
+- `web/src/test/`
+  - UI behavior tests for login/register mode switching
+  - register form validation tests
+  - successful registration and toast rendering tests
+
+Local execution is available through:
+
+- direct per-service test commands
+- `scripts/run-tests.ps1` for one command across all suites
+
+Remote validation is available through:
+
+- `.github/workflows/tests.yml`
+- automatic execution on pushes and pull requests
 
 ## Design Clarification
 
@@ -284,3 +314,4 @@ The next immediate milestone is:
 - Prepare Azure deployment using the new env-based configuration
 - Replace the mock `node-ai/` toast messages with OpenAI-generated content
 - Finish the remaining mobile visual polish
+- Continue deployment preparation using the existing Docker and CI foundations

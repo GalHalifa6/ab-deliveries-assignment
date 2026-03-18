@@ -7,3 +7,6 @@ __pycache__/
 .env
 .env.local
 .env.*.local
+mongoATLAS pasword.txt
+atlas connection string.txt
+registryName.txt

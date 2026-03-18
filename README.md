@@ -33,7 +33,8 @@ Completed:
 - MongoDB now stores the toast message each registered user received
 - Environment-based API configuration is now added for web, mobile, Python, and Node services
 - Health endpoints are now available on both backend services
-- Docker support is now added for `python-server/` and `node-ai/`
+- Docker support is now added for `web/`, `python-server/`, and `node-ai/`
+- Docker Compose now includes a local MongoDB service for a fuller local stack
 - Backend and web automated tests are now added
 - A root PowerShell test runner is now available in `scripts/run-tests.ps1`
 - GitHub Actions CI now runs Python, Node AI, and web tests on every push and pull request
@@ -84,17 +85,31 @@ Use those files to create local `.env` files before deployment.
 - Python: `GET /health`
 - Node AI: `GET /health`
 
-## Run Backend Services With Docker
+## Run Local Stack With Docker
 
 ```bash
 docker compose up --build
 ```
 
-This starts the Dockerized backend services defined in:
+This starts the Dockerized local stack:
 
+- `web/Dockerfile`
 - `python-server/Dockerfile`
 - `node-ai/Dockerfile`
 - `docker-compose.yml`
+
+Key local ports:
+
+- Web: `http://localhost:5173`
+- Python API: `http://localhost:8000`
+- Node AI: `http://localhost:3001`
+- MongoDB: `mongodb://localhost:27017`
+
+Important note:
+
+- The mobile Expo app is intentionally kept outside Docker
+- This keeps device testing simple while still containerizing the parts that matter most for backend/cloud readiness
+- `docker-compose.yml` overrides the Python container to use the internal service addresses for MongoDB and Node AI
 
 ## Run Tests
 
@@ -173,8 +188,16 @@ The project is now prepared for deployment-oriented configuration:
 - local `.env` files stay private and are gitignored
 - `.env.example` files document the required configuration
 - backend services expose `/health`
-- Docker support is available for both backend services
+- Docker support is available for the meaningful deployable services
 - local and CI test flows are in place before Azure deployment
+
+Current containerization approach:
+
+- `web` is containerized as a static production-style build served by Nginx
+- `python-server` is containerized as the main backend API
+- `node-ai` is containerized as the toast/AI backend service
+- `mongo` is included in Docker Compose for local full-stack development
+- `mobile` is intentionally not containerized
 
 ## Next Step
 

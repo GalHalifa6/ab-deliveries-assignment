@@ -1,18 +1,84 @@
 services:
-  python-server:
-    build:
-      context: ./python-server
-    env_file:
-      - ./python-server/.env
+  mongo:
+    image: mongo:8.0
+    container_name: ab-deliveries-mongo
+    restart: unless-stopped
     ports:
-      - "8000:8000"
-    depends_on:
-      - node-ai
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   node-ai:
     build:
       context: ./node-ai
+    container_name: ab-deliveries-node-ai
     env_file:
       - ./node-ai/.env
+    restart: unless-stopped
     ports:
       - "3001:3001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3001/health').then((response) => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  python-server:
+    build:
+      context: ./python-server
+    container_name: ab-deliveries-python-server
+    env_file:
+      - ./python-server/.env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017
+      NODE_AI_URL: http://node-ai:3001/toast-message
+      ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      node-ai:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  web:
+    build:
+      context: ./web
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+    container_name: ab-deliveries-web
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      python-server:
+        condition: service_healthy
+
+volumes:
+  mongo-data:

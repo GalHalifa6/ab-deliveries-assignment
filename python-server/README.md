@@ -24,6 +24,13 @@ docker build -t ab-deliveries-python ./python-server
 docker run --env-file python-server/.env -p 8000:8000 ab-deliveries-python
 ```
 
+Docker Compose note:
+
+- In the full local Docker stack, this service is wired to:
+  - `mongodb://mongo:27017`
+  - `http://node-ai:3001/toast-message`
+- Those service-to-service values are set in `docker-compose.yml`
+
 Tests:
 
 ```bash

@@ -127,7 +127,8 @@ Current progress note:
 - The Python server now logs the toast message shown after registration
 - MongoDB now stores the toast message assigned to each registered user
 - Environment-based configuration is now in place for local vs production API URLs
-- Docker support is now added for the Python and Node backend services
+- Docker support is now added for the web and backend services
+- Docker Compose now includes a local MongoDB service for a fuller local stack
 - Health endpoints are available on both backend services
 - Automated backend and web tests are now in place
 - A local root test runner script is available in `scripts/run-tests.ps1`
@@ -176,6 +177,11 @@ Both clients should share the same product flow:
 - Submit data to the Python API
 - Receive the final registration response from the Python API
 - Display the returned toast message to the user
+
+Current containerization choice:
+
+- `web/` is now containerized as a static build served through Nginx
+- `mobile/` intentionally remains outside Docker for practical Expo/device development
 
 ### Main Backend
 
@@ -238,6 +244,15 @@ Deployment planning should include:
 - Production API URLs for frontend clients
 - Optional container-based deployment using the added Dockerfiles and `docker-compose.yml`
 - CI validation through GitHub Actions before deployment
+
+Current local container stack:
+
+- `web`
+- `python-server`
+- `node-ai`
+- `mongo`
+
+This gives the project a practical local environment closer to production without over-complicating mobile development.
 
 ### Testing Strategy
 

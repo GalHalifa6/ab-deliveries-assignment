@@ -1,0 +1,18 @@
+services:
+  python-server:
+    build:
+      context: ./python-server
+    env_file:
+      - ./python-server/.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - node-ai
+
+  node-ai:
+    build:
+      context: ./node-ai
+    env_file:
+      - ./node-ai/.env
+    ports:
+      - "3001:3001"

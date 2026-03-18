@@ -1,4 +1,5 @@
 import os
+from typing import List
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -25,9 +26,18 @@ class LoginRequest(BaseModel):
 app = FastAPI(title="A.B Deliveries Python Server")
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
+
+def get_allowed_origins() -> List[str]:
+    configured_origins = os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8081,http://127.0.0.1:8081",
+    )
+    return [origin.strip() for origin in configured_origins.split(",") if origin.strip()]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -35,11 +45,12 @@ app.add_middleware(
 
 mongodb_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 mongodb_name = os.getenv("MONGODB_DB_NAME", "ab_deliveries")
+users_collection_name = os.getenv("USERS_COLLECTION_NAME", "users")
 node_ai_url = os.getenv("NODE_AI_URL", "http://127.0.0.1:3001/toast-message")
 
 client = MongoClient(mongodb_uri)
 database = client[mongodb_name]
-users_collection = database["users"]
+users_collection = database[users_collection_name]
 
 
 def fetch_toast_message():
@@ -63,7 +74,13 @@ def fetch_toast_message():
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "service": "python-server",
+        "nodeAiUrl": node_ai_url,
+        "database": mongodb_name,
+        "usersCollection": users_collection_name,
+    }
 
 
 @app.post("/register")

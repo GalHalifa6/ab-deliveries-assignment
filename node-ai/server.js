@@ -1,5 +1,6 @@
 import http from 'node:http'
 
+const HOST = process.env.HOST || '0.0.0.0'
 const PORT = Number(process.env.PORT || 3001)
 
 const toastMessages = [
@@ -32,7 +33,11 @@ const server = http.createServer((request, response) => {
   }
 
   if (request.method === 'GET' && request.url === '/health') {
-    sendJson(response, 200, { status: 'ok' })
+    sendJson(response, 200, {
+      status: 'ok',
+      service: 'node-ai',
+      openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
+    })
     return
   }
 
@@ -50,6 +55,6 @@ const server = http.createServer((request, response) => {
   })
 })
 
-server.listen(PORT, () => {
-  console.log(`Node AI service listening on http://127.0.0.1:${PORT}`)
+server.listen(PORT, HOST, () => {
+  console.log(`Node AI service listening on http://${HOST}:${PORT}`)
 })

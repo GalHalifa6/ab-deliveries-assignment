@@ -4,3 +4,6 @@ mobile/.expo/
 mobile/package-lock.json
 __pycache__/
 *.pyc
+.env
+.env.local
+.env.*.local

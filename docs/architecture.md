@@ -126,6 +126,9 @@ Current progress note:
 - The mobile Google/Facebook buttons and logo were refined toward the provided Figma
 - The Python server now logs the toast message shown after registration
 - MongoDB now stores the toast message assigned to each registered user
+- Environment-based configuration is now in place for local vs production API URLs
+- Docker support is now added for the Python and Node backend services
+- Health endpoints are available on both backend services
 
 ## Technical Requirements
 
@@ -183,6 +186,7 @@ The `python-server/` service will be responsible for:
 - Saving the returned toast message with the registered user document
 - Logging the toast message in the server terminal for local visibility
 - Returning success or error responses to the frontend
+- Reading deployment settings from environment variables
 
 Suggested initial endpoint:
 
@@ -196,6 +200,7 @@ The `node-ai/` service will be responsible for:
 - Receiving a request from the Python server for a toast message
 - Calling OpenAI
 - Returning a short random message suitable for a toast notification
+- Exposing a health endpoint for deployment checks
 
 Suggested initial endpoint:
 
@@ -227,6 +232,7 @@ Deployment planning should include:
 - Azure service selection
 - MongoDB connection string configuration
 - Production API URLs for frontend clients
+- Optional container-based deployment using the added Dockerfiles and `docker-compose.yml`
 
 ## Design Clarification
 
@@ -275,6 +281,6 @@ The first local web-to-Python-to-MongoDB flow is now working.
 
 The next immediate milestone is:
 
-- Finish the remaining mobile visual polish and environment configuration
+- Prepare Azure deployment using the new env-based configuration
 - Replace the mock `node-ai/` toast messages with OpenAI-generated content
-- Prepare the backend services for Azure deployment
+- Finish the remaining mobile visual polish

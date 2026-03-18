@@ -31,6 +31,9 @@ Completed:
 - Mobile auth screen visually aligned further with the provided mobile Figma
 - Python backend now logs the toast message sent after registration
 - MongoDB now stores the toast message each registered user received
+- Environment-based API configuration is now added for web, mobile, Python, and Node services
+- Health endpoints are now available on both backend services
+- Docker support is now added for `python-server/` and `node-ai/`
 
 Still pending:
 
@@ -60,6 +63,28 @@ The provided Figma is login-oriented, but the same visual style will be used for
 cd web
 npm install
 npm run dev
+```
+
+## Environment Setup
+
+Example env files are included in:
+
+- `web/.env.example`
+- `mobile/.env.example`
+- `python-server/.env.example`
+- `node-ai/.env.example`
+
+Use those files to create local `.env` files before deployment.
+
+## Health Endpoints
+
+- Python: `GET /health`
+- Node AI: `GET /health`
+
+## Run Backend Services With Docker
+
+```bash
+docker compose up --build
 ```
 
 ## Next Step

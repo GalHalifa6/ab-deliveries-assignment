@@ -4,11 +4,12 @@ from typing import List
 from urllib.error import URLError
 from urllib.request import urlopen
 
+import certifi
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from pymongo import MongoClient
-from pymongo.errors import PyMongoError
+from pymongo.errors import PyMongoError, ServerSelectionTimeoutError
 from passlib.context import CryptContext
 
 
@@ -50,7 +51,14 @@ mongodb_name = os.getenv("MONGODB_DB_NAME", "ab_deliveries")
 users_collection_name = os.getenv("USERS_COLLECTION_NAME", "users")
 node_ai_url = os.getenv("NODE_AI_URL", "http://127.0.0.1:3001/toast-message")
 
-client = MongoClient(mongodb_uri)
+mongodb_client_options = {
+    "serverSelectionTimeoutMS": 5000,
+}
+
+if mongodb_uri.startswith("mongodb+srv://"):
+    mongodb_client_options["tlsCAFile"] = certifi.where()
+
+client = MongoClient(mongodb_uri, **mongodb_client_options)
 database = client[mongodb_name]
 users_collection = database[users_collection_name]
 
@@ -59,9 +67,9 @@ def fetch_toast_message():
     fallback_message = "Run the node-ai (Node.js) server first to see the toast messages."
 
     try:
-        with urlopen(node_ai_url, timeout=3) as response:
+        with urlopen(node_ai_url, timeout=8) as response:
             payload = response.read().decode("utf-8")
-    except URLError:
+    except (TimeoutError, URLError):
         return fallback_message
 
     import json
@@ -76,12 +84,20 @@ def fetch_toast_message():
 
 @app.get("/health")
 def health_check():
+    database_status = "ok"
+
+    try:
+        client.admin.command("ping")
+    except ServerSelectionTimeoutError:
+        database_status = "unreachable"
+
     return {
         "status": "ok",
         "service": "python-server",
         "nodeAiUrl": node_ai_url,
         "database": mongodb_name,
         "usersCollection": users_collection_name,
+        "databaseStatus": database_status,
     }
 
 
@@ -92,7 +108,11 @@ def register(payload: RegistrationRequest):
     if len(payload.password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
 
-    existing_user = users_collection.find_one({"email": payload.email.lower()})
+    try:
+        existing_user = users_collection.find_one({"email": payload.email.lower()})
+    except ServerSelectionTimeoutError as error:
+        raise HTTPException(status_code=503, detail="Database connection is currently unavailable.") from error
+
     if existing_user:
         raise HTTPException(status_code=409, detail="A user with this email already exists.")
 
@@ -130,7 +150,10 @@ def register(payload: RegistrationRequest):
 def login(payload: LoginRequest):
     logger.info("Login request received for email: %s", payload.email)
 
-    user = users_collection.find_one({"email": payload.email.lower()})
+    try:
+        user = users_collection.find_one({"email": payload.email.lower()})
+    except ServerSelectionTimeoutError as error:
+        raise HTTPException(status_code=503, detail="Database connection is currently unavailable.") from error
 
     if not user or not pwd_context.verify(payload.password, user["passwordHash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password.")

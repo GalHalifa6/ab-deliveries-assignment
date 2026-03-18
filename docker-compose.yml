@@ -4,7 +4,7 @@ services:
     container_name: ab-deliveries-mongo
     restart: unless-stopped
     ports:
-      - "27017:27017"
+      - "27018:27017"
     volumes:
       - mongo-data:/data/db
     healthcheck:
@@ -43,15 +43,12 @@ services:
     env_file:
       - ./python-server/.env
     environment:
-      MONGODB_URI: mongodb://mongo:27017
       NODE_AI_URL: http://node-ai:3001/toast-message
       ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     restart: unless-stopped
     ports:
       - "8000:8000"
     depends_on:
-      mongo:
-        condition: service_healthy
       node-ai:
         condition: service_healthy
     healthcheck:

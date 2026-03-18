@@ -133,6 +133,10 @@ Current progress note:
 - Automated backend and web tests are now in place
 - A local root test runner script is available in `scripts/run-tests.ps1`
 - GitHub Actions now runs the Python, Node AI, and web test suites automatically
+- Azure Container Registry is now in use for image storage
+- Azure Container Apps now host the deployed `web`, `python-server`, and `node-ai` services
+- MongoDB Atlas connectivity now works from the deployed Python backend
+- Live web registration now works end to end on Azure with mock toast messages
 
 ## Technical Requirements
 
@@ -221,6 +225,7 @@ Current implementation note:
 - The current version returns mock random messages
 - OpenAI integration is the next upgrade for this service
 - The service is structured for local testing and CI execution
+- The deployed Azure version is currently still mock-based
 
 ### Database Layer
 
@@ -253,6 +258,20 @@ Current local container stack:
 - `mongo`
 
 This gives the project a practical local environment closer to production without over-complicating mobile development.
+
+Current deployed cloud stack:
+
+- `web` deployed on Azure Container Apps
+- `python-server` deployed on Azure Container Apps
+- `node-ai` deployed on Azure Container Apps
+- MongoDB Atlas used as the external managed database
+
+Current deployment note:
+
+- the working Azure Container Apps environment is in `northeurope`
+- the live deployed flow now works for registration through the web app
+- the deployed `node-ai` still uses mock responses
+- detailed deployment steps are documented in `docs/azure-deployment.md`
 
 ### Testing Strategy
 
@@ -326,7 +345,7 @@ The first local web-to-Python-to-MongoDB flow is now working.
 
 The next immediate milestone is:
 
-- Prepare Azure deployment using the new env-based configuration
 - Replace the mock `node-ai/` toast messages with OpenAI-generated content
 - Finish the remaining mobile visual polish
-- Continue deployment preparation using the existing Docker and CI foundations
+- Rotate the MongoDB credentials used during deployment testing
+- Continue with the chatbot implementation phase

@@ -38,13 +38,21 @@ Completed:
 - Backend and web automated tests are now added
 - A root PowerShell test runner is now available in `scripts/run-tests.ps1`
 - GitHub Actions CI now runs Python, Node AI, and web tests on every push and pull request
+- Azure Container Registry is now created and used for image publishing
+- Azure Container Apps environment is now created and running in `northeurope`
+- `node-ai` is now deployed to Azure Container Apps
+- `python-server` is now deployed to Azure Container Apps
+- `web` is now deployed to Azure Container Apps
+- MongoDB Atlas is now connected successfully from the deployed Python backend
+- End-to-end registration now works from the live deployed web app
+- Mock toast messages now work end to end on the deployed Azure stack
 
 Still pending:
 
 - OpenAI integration inside the Node.js toast service
 - Final mobile visual polish
-- Azure deployment
 - Hebrew AI chatbot and conversation logging
+- MongoDB credential rotation after deployment testing
 
 ## Planned Flow
 
@@ -80,6 +88,28 @@ Example env files are included in:
 
 Use those files to create local `.env` files before deployment.
 
+## Azure Deployment
+
+The application is now deployed on Azure Container Apps.
+
+Live endpoints:
+
+- Web: `https://ab-web.salmonmoss-0b293592.northeurope.azurecontainerapps.io`
+- Python API: `https://ab-python-server.salmonmoss-0b293592.northeurope.azurecontainerapps.io`
+- Node AI: `https://ab-node-ai.salmonmoss-0b293592.northeurope.azurecontainerapps.io`
+
+Deployment notes:
+
+- Azure Container Registry stores the Docker images
+- Azure Container Apps hosts `web`, `python-server`, and `node-ai`
+- MongoDB Atlas remains the external database
+- Python CORS is configured to allow the deployed web origin
+- `node-ai` currently returns mock toast messages, not OpenAI-generated text yet
+
+For the deployment walkthrough and troubleshooting notes, see:
+
+- `docs/azure-deployment.md`
+
 ## Health Endpoints
 
 - Python: `GET /health`
@@ -103,7 +133,7 @@ Key local ports:
 - Web: `http://localhost:5173`
 - Python API: `http://localhost:8000`
 - Node AI: `http://localhost:3001`
-- MongoDB: `mongodb://localhost:27017`
+- MongoDB: `mongodb://localhost:27018`
 
 Important note:
 
@@ -182,7 +212,7 @@ You do not need to run the workflow file manually. After you commit and push, Gi
 
 ## Deployment Readiness
 
-The project is now prepared for deployment-oriented configuration:
+The project is now prepared for deployment-oriented configuration and is deployed on Azure:
 
 - all important service settings are env-based
 - local `.env` files stay private and are gitignored
@@ -190,6 +220,9 @@ The project is now prepared for deployment-oriented configuration:
 - backend services expose `/health`
 - Docker support is available for the meaningful deployable services
 - local and CI test flows are in place before Azure deployment
+- Azure Container Registry is in use for image publishing
+- Azure Container Apps are running for the web and backend services
+- MongoDB Atlas connectivity from Azure is now working
 
 Current containerization approach:
 
@@ -205,5 +238,5 @@ The next step is to continue the post-registration flow:
 
 1. Finish the remaining mobile visual polish
 2. Replace the mock Node.js toast messages with OpenAI-generated messages
-3. Prepare Azure deployment for the backend services
+3. Rotate the MongoDB Atlas credentials used during deployment testing
 4. Continue with the Hebrew AI chatbot and conversation logging

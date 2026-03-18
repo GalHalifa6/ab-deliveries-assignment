@@ -1,0 +1,46 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Python dependencies
+        run: pip install -r python-server/requirements.txt
+
+      - name: Run Python server tests
+        working-directory: python-server
+        run: python -m unittest discover -s tests -v
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Node AI dependencies
+        working-directory: node-ai
+        run: npm install
+
+      - name: Run Node AI tests
+        working-directory: node-ai
+        run: npm test
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm install
+
+      - name: Run web tests
+        working-directory: web
+        run: npm test

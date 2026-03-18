@@ -87,6 +87,47 @@ Use those files to create local `.env` files before deployment.
 docker compose up --build
 ```
 
+## Run Tests
+
+Run Python server tests:
+
+```bash
+cd python-server
+python -m unittest discover -s tests -v
+```
+
+Run Node AI tests:
+
+```bash
+cd node-ai
+npm test
+```
+
+Run web tests:
+
+```bash
+cd web
+npm test
+```
+
+Run all test suites from the repository root in PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/run-tests.ps1
+```
+
+Run one suite at a time:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/run-tests.ps1 -Suite python
+powershell -ExecutionPolicy Bypass -File scripts/run-tests.ps1 -Suite node
+powershell -ExecutionPolicy Bypass -File scripts/run-tests.ps1 -Suite web
+```
+
+CI:
+
+- GitHub Actions now runs the Python, Node, and web tests automatically on pushes and pull requests
+
 ## Next Step
 
 The next step is to continue the post-registration flow:

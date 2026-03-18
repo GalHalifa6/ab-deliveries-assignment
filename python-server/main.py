@@ -1,3 +1,4 @@
+import logging
 import os
 from typing import List
 from urllib.error import URLError
@@ -25,6 +26,7 @@ class LoginRequest(BaseModel):
 
 app = FastAPI(title="A.B Deliveries Python Server")
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+logger = logging.getLogger(__name__)
 
 
 def get_allowed_origins() -> List[str]:
@@ -85,7 +87,7 @@ def health_check():
 
 @app.post("/register")
 def register(payload: RegistrationRequest):
-    print(f"Registration request received for email: {payload.email}")
+    logger.info("Registration request received for email: %s", payload.email)
 
     if len(payload.password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters long.")
@@ -110,7 +112,7 @@ def register(payload: RegistrationRequest):
     except PyMongoError as error:
         raise HTTPException(status_code=500, detail=f"Database error: {error}") from error
 
-    print(f"Toast message sent to user {payload.email}: {toast_message}")
+    logger.info("Toast message sent to user %s: %s", payload.email, toast_message)
 
     return {
         "success": True,
@@ -126,7 +128,7 @@ def register(payload: RegistrationRequest):
 
 @app.post("/login")
 def login(payload: LoginRequest):
-    print(f"Login request received for email: {payload.email}")
+    logger.info("Login request received for email: %s", payload.email)
 
     user = users_collection.find_one({"email": payload.email.lower()})
 

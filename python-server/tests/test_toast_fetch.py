@@ -35,7 +35,7 @@ class ToastMessageUnitTests(unittest.TestCase):
 
         self.assertEqual(
             message,
-            "Run the node-ai (Node.js) server first to see the toast messages.",
+            "Welcome aboard. We are getting your first delivery update ready.",
         )
 
     def test_fetch_toast_message_returns_fallback_on_invalid_json(self):
@@ -44,5 +44,14 @@ class ToastMessageUnitTests(unittest.TestCase):
 
         self.assertEqual(
             message,
-            "Run the node-ai (Node.js) server first to see the toast messages.",
+            "Welcome aboard. We are getting your first delivery update ready.",
         )
+
+    def test_fetch_toast_message_retries_before_returning_fallback(self):
+        with (
+            patch.object(main, "urlopen", side_effect=[URLError("boom"), FakeHttpResponse(json.dumps({"toastMessage": "Retry success"}))]),
+            patch.object(main.time, "sleep"),
+        ):
+            message = main.fetch_toast_message()
+
+        self.assertEqual(message, "Retry success")

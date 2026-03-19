@@ -45,14 +45,16 @@ Completed:
 - `web` is now deployed to Azure Container Apps
 - MongoDB Atlas is now connected successfully from the deployed Python backend
 - End-to-end registration now works from the live deployed web app
-- Mock toast messages now work end to end on the deployed Azure stack
+- OpenAI toast generation is now connected through the deployed Node.js service
+- The deployed stack now uses `gpt-5-mini` for toast generation
+- Registration flow now saves the user immediately and then stores the toast message asynchronously
 
 Still pending:
 
-- OpenAI integration inside the Node.js toast service
 - Final mobile visual polish
 - Hebrew AI chatbot and conversation logging
 - MongoDB credential rotation after deployment testing
+- Final polish of the delayed toast delivery UX
 
 ## Planned Flow
 
@@ -61,9 +63,9 @@ Still pending:
 3. The Python server validates the data and stores it in MongoDB.
 4. After successful registration, the Python server requests a toast message from the Node.js AI service.
 5. The AI service calls OpenAI and returns a short message to the Python server.
-6. The Python server stores that toast message for the user in MongoDB and logs it in the terminal.
-7. The Python server returns the registration result and toast content to the frontend.
-8. The frontend displays the message as a toast.
+6. The Python server stores the user immediately, then requests the toast asynchronously and saves it in MongoDB.
+7. The frontend receives the successful registration response without waiting for the toast generation to block the request.
+8. The frontend checks for the generated toast and displays it when it becomes available.
 
 ## Design Note
 
@@ -104,7 +106,9 @@ Deployment notes:
 - Azure Container Apps hosts `web`, `python-server`, and `node-ai`
 - MongoDB Atlas remains the external database
 - Python CORS is configured to allow the deployed web origin
-- `node-ai` currently returns mock toast messages, not OpenAI-generated text yet
+- `node-ai` now calls OpenAI using the `OPENAI_API_KEY` configured in Azure
+- `OPENAI_MODEL` is currently set to `gpt-5-mini`
+- the current registration flow saves the user first and then stores the toast asynchronously
 
 For the deployment walkthrough and troubleshooting notes, see:
 
@@ -228,7 +232,7 @@ Current containerization approach:
 
 - `web` is containerized as a static production-style build served by Nginx
 - `python-server` is containerized as the main backend API
-- `node-ai` is containerized as the toast/AI backend service
+- `node-ai` is containerized as the toast/AI backend service and now calls OpenAI in production
 - `mongo` is included in Docker Compose for local full-stack development
 - `mobile` is intentionally not containerized
 
@@ -237,6 +241,6 @@ Current containerization approach:
 The next step is to continue the post-registration flow:
 
 1. Finish the remaining mobile visual polish
-2. Replace the mock Node.js toast messages with OpenAI-generated messages
-3. Rotate the MongoDB Atlas credentials used during deployment testing
+2. Rotate the MongoDB Atlas credentials used during deployment testing
+3. Polish the delayed toast delivery UX after registration
 4. Continue with the Hebrew AI chatbot and conversation logging

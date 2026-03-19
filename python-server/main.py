@@ -50,6 +50,7 @@ mongodb_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 mongodb_name = os.getenv("MONGODB_DB_NAME", "ab_deliveries")
 users_collection_name = os.getenv("USERS_COLLECTION_NAME", "users")
 node_ai_url = os.getenv("NODE_AI_URL", "http://127.0.0.1:3001/toast-message")
+node_ai_timeout_seconds = float(os.getenv("NODE_AI_TIMEOUT_SECONDS", "20"))
 
 mongodb_client_options = {
     "serverSelectionTimeoutMS": 5000,
@@ -67,7 +68,7 @@ def fetch_toast_message():
     fallback_message = "Run the node-ai (Node.js) server first to see the toast messages."
 
     try:
-        with urlopen(node_ai_url, timeout=8) as response:
+        with urlopen(node_ai_url, timeout=node_ai_timeout_seconds) as response:
             payload = response.read().decode("utf-8")
     except (TimeoutError, URLError):
         return fallback_message
@@ -95,6 +96,7 @@ def health_check():
         "status": "ok",
         "service": "python-server",
         "nodeAiUrl": node_ai_url,
+        "nodeAiTimeoutSeconds": node_ai_timeout_seconds,
         "database": mongodb_name,
         "usersCollection": users_collection_name,
         "databaseStatus": database_status,

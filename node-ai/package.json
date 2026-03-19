@@ -4,8 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node server.js",
-    "start": "node server.js",
-    "test": "node --test"
+  "dev": "node --env-file=.env server.js",
+  "start": "node server.js",
+  "test": "node --test"
+},
+  "dependencies": {
+    "openai": "^6.7.0"
   }
 }

@@ -73,6 +73,30 @@ export function AuthScreen() {
     Alert.alert('A.B Deliveries', message)
   }
 
+  const pollForToastMessage = async (email) => {
+    if (!email) {
+      return
+    }
+
+    for (let attempt = 0; attempt < 12; attempt += 1) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/user-toast?email=${encodeURIComponent(email)}`)
+        const data = await response.json()
+
+        if (response.ok && data.ready && data.toastMessage) {
+          showToast(data.toastMessage)
+          return
+        }
+      } catch {
+        return
+      }
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, 1000)
+      })
+    }
+  }
+
   const handleSubmit = async () => {
     if (!formData.email || !formData.password) {
       setSubmitState({
@@ -123,8 +147,13 @@ export function AuthScreen() {
         message: data.message || currentModeConfig.successMessage,
       })
 
-      if (isRegisterMode && data.toastMessage) {
-        showToast(data.toastMessage)
+      if (isRegisterMode) {
+        if (data.toastMessage) {
+          showToast(data.toastMessage)
+        } else if (data.toastPending) {
+          const registeredEmail = data.user?.email || formData.email
+          void pollForToastMessage(registeredEmail)
+        }
       }
 
       setFormData((current) => currentModeConfig.resetFormData(current))

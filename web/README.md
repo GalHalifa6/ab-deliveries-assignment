@@ -1,16 +1,39 @@
-# React + Vite
+# Web App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite frontend for the A.B Deliveries assignment.
 
-Currently, two official plugins are available:
+Local development:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+npm install
+npm run dev
+```
 
-## React Compiler
+Environment variables:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- `VITE_API_BASE_URL`
 
-## Expanding the ESLint configuration
+Use `web/.env.example` for local setup.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Build:
+
+```bash
+npm run build
+```
+
+Tests:
+
+```bash
+npm test
+```
+
+What the web app currently does:
+
+- renders the login and registration UI based on the assignment Figma direction
+- calls the Python API for login and registration
+- shows the immediate success/error state from the backend
+- polls `GET /user-toast` after registration so delayed toast messages can still be shown
+
+Production note:
+
+- the Azure deployment is built as a static bundle and served through Nginx

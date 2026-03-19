@@ -73,6 +73,7 @@ The following fixes were required during deployment:
 - `node-ai` now uses OpenAI through `OPENAI_API_KEY` and `OPENAI_MODEL`
 - The deployed model is currently `gpt-5-mini`
 - The registration flow now saves the user first and stores the toast asynchronously
+- The Python backend now retries toast fetches before storing the friendly fallback message
 
 ## Current Known Limitations
 

@@ -13,6 +13,8 @@ Environment variables:
 - `MONGODB_DB_NAME`
 - `USERS_COLLECTION_NAME`
 - `NODE_AI_URL`
+- `NODE_AI_TIMEOUT_SECONDS`
+- `NODE_AI_RETRY_COUNT`
 - `ALLOWED_ORIGINS`
 
 Use `python-server/.env.example` as the starting point for local or Azure configuration.
@@ -42,6 +44,7 @@ What is covered:
 - `GET /health`
 - `POST /register`
 - `POST /login`
+- `GET /user-toast`
 - toast message fetch success and fallback handling
 
 CI:
@@ -59,3 +62,10 @@ Available endpoints:
 - `GET /health`
 - `POST /register`
 - `POST /login`
+- `GET /user-toast`
+
+Behavior notes:
+
+- registration saves the user immediately, then fetches the toast in a background task
+- the frontend can read the delayed toast from `GET /user-toast`
+- toast fetches retry before falling back to a friendly default message

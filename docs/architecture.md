@@ -227,7 +227,7 @@ Current implementation note:
 - The service now supports real OpenAI toast generation
 - A mock fallback still exists for resilience if OpenAI fails
 - The service is structured for local testing and CI execution
-- The deployed Azure version is currently still mock-based
+- The deployed Azure version now uses OpenAI with Azure-managed environment variables
 
 ### Database Layer
 

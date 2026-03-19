@@ -136,7 +136,9 @@ Current progress note:
 - Azure Container Registry is now in use for image storage
 - Azure Container Apps now host the deployed `web`, `python-server`, and `node-ai` services
 - MongoDB Atlas connectivity now works from the deployed Python backend
-- Live web registration now works end to end on Azure with mock toast messages
+- Live web registration now works end to end on Azure
+- The deployed `node-ai` now uses OpenAI with `gpt-5-mini` for toast generation
+- The registration flow now saves the user first and stores the toast asynchronously
 
 ## Technical Requirements
 
@@ -222,8 +224,8 @@ Suggested initial endpoint:
 Current implementation note:
 
 - A local Node.js scaffold is already in place
-- The current version returns mock random messages
-- OpenAI integration is the next upgrade for this service
+- The service now supports real OpenAI toast generation
+- A mock fallback still exists for resilience if OpenAI fails
 - The service is structured for local testing and CI execution
 - The deployed Azure version is currently still mock-based
 
@@ -270,7 +272,7 @@ Current deployment note:
 
 - the working Azure Container Apps environment is in `northeurope`
 - the live deployed flow now works for registration through the web app
-- the deployed `node-ai` still uses mock responses
+- the deployed `node-ai` now uses OpenAI with Azure-managed environment variables
 - detailed deployment steps are documented in `docs/azure-deployment.md`
 
 ### Testing Strategy
@@ -345,7 +347,7 @@ The first local web-to-Python-to-MongoDB flow is now working.
 
 The next immediate milestone is:
 
-- Replace the mock `node-ai/` toast messages with OpenAI-generated content
 - Finish the remaining mobile visual polish
 - Rotate the MongoDB credentials used during deployment testing
+- Polish the delayed toast delivery UX after registration
 - Continue with the chatbot implementation phase

@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from typing import List
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -51,6 +52,7 @@ mongodb_name = os.getenv("MONGODB_DB_NAME", "ab_deliveries")
 users_collection_name = os.getenv("USERS_COLLECTION_NAME", "users")
 node_ai_url = os.getenv("NODE_AI_URL", "http://127.0.0.1:3001/toast-message")
 node_ai_timeout_seconds = float(os.getenv("NODE_AI_TIMEOUT_SECONDS", "7"))
+node_ai_retry_count = int(os.getenv("NODE_AI_RETRY_COUNT", "3"))
 
 mongodb_client_options = {
     "serverSelectionTimeoutMS": 5000,
@@ -65,22 +67,31 @@ users_collection = database[users_collection_name]
 
 
 def fetch_toast_message():
-    fallback_message = "Run the node-ai (Node.js) server first to see the toast messages."
+    fallback_message = "Welcome aboard. We are getting your first delivery update ready."
 
-    try:
-        with urlopen(node_ai_url, timeout=node_ai_timeout_seconds) as response:
-            payload = response.read().decode("utf-8")
-    except (TimeoutError, URLError):
-        return fallback_message
+    for attempt in range(1, node_ai_retry_count + 1):
+        try:
+            with urlopen(node_ai_url, timeout=node_ai_timeout_seconds) as response:
+                payload = response.read().decode("utf-8")
 
-    import json
+            import json
 
-    try:
-        data = json.loads(payload)
-    except json.JSONDecodeError:
-        return fallback_message
+            data = json.loads(payload)
+            toast_message = data.get("toastMessage")
 
-    return data.get("toastMessage", fallback_message)
+            if toast_message:
+                return toast_message
+
+            logger.warning("Node AI response did not include toastMessage on attempt %s.", attempt)
+        except (TimeoutError, URLError) as error:
+            logger.warning("Node AI request failed on attempt %s: %s", attempt, error)
+        except json.JSONDecodeError as error:
+            logger.warning("Node AI returned invalid JSON on attempt %s: %s", attempt, error)
+
+        if attempt < node_ai_retry_count:
+            time.sleep(attempt * 0.5)
+
+    return fallback_message
 
 
 def generate_and_store_toast_message(email: str):
@@ -106,6 +117,7 @@ def health_check():
         "service": "python-server",
         "nodeAiUrl": node_ai_url,
         "nodeAiTimeoutSeconds": node_ai_timeout_seconds,
+        "nodeAiRetryCount": node_ai_retry_count,
         "database": mongodb_name,
         "usersCollection": users_collection_name,
         "databaseStatus": database_status,

@@ -5,7 +5,7 @@ from urllib.error import URLError
 from urllib.request import urlopen
 
 import certifi
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, EmailStr
 from pymongo import MongoClient
@@ -50,7 +50,7 @@ mongodb_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 mongodb_name = os.getenv("MONGODB_DB_NAME", "ab_deliveries")
 users_collection_name = os.getenv("USERS_COLLECTION_NAME", "users")
 node_ai_url = os.getenv("NODE_AI_URL", "http://127.0.0.1:3001/toast-message")
-node_ai_timeout_seconds = float(os.getenv("NODE_AI_TIMEOUT_SECONDS", "20"))
+node_ai_timeout_seconds = float(os.getenv("NODE_AI_TIMEOUT_SECONDS", "7"))
 
 mongodb_client_options = {
     "serverSelectionTimeoutMS": 5000,
@@ -83,6 +83,15 @@ def fetch_toast_message():
     return data.get("toastMessage", fallback_message)
 
 
+def generate_and_store_toast_message(email: str):
+    toast_message = fetch_toast_message()
+
+    users_collection.update_one(
+        {"email": email.lower()},
+        {"$set": {"toastMessage": toast_message}},
+    )
+
+
 @app.get("/health")
 def health_check():
     database_status = "ok"
@@ -104,7 +113,7 @@ def health_check():
 
 
 @app.post("/register")
-def register(payload: RegistrationRequest):
+def register(payload: RegistrationRequest, background_tasks: BackgroundTasks):
     logger.info("Registration request received for email: %s", payload.email)
 
     if len(payload.password) < 6:
@@ -119,14 +128,13 @@ def register(payload: RegistrationRequest):
         raise HTTPException(status_code=409, detail="A user with this email already exists.")
 
     hashed_password = pwd_context.hash(payload.password)
-    toast_message = fetch_toast_message()
 
     user_document = {
         "fullName": payload.fullName.strip(),
         "phone": payload.phone.strip(),
         "email": payload.email.lower(),
         "passwordHash": hashed_password,
-        "toastMessage": toast_message,
+        "toastMessage": None,
     }
 
     try:
@@ -134,17 +142,32 @@ def register(payload: RegistrationRequest):
     except PyMongoError as error:
         raise HTTPException(status_code=500, detail=f"Database error: {error}") from error
 
-    logger.info("Toast message sent to user %s: %s", payload.email, toast_message)
+    background_tasks.add_task(generate_and_store_toast_message, payload.email)
 
     return {
         "success": True,
         "message": f"Welcome aboard, {payload.fullName}! Your registration was saved.",
-        "toastMessage": toast_message,
+        "toastPending": True,
         "user": {
             "fullName": payload.fullName,
             "phone": payload.phone,
             "email": payload.email,
         },
+    }
+
+
+@app.get("/user-toast")
+def get_user_toast(email: EmailStr):
+    user = users_collection.find_one({"email": email.lower()})
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    toast_message = user.get("toastMessage")
+
+    return {
+        "ready": bool(toast_message),
+        "toastMessage": toast_message,
     }
 
 

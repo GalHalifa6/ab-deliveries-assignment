@@ -57,14 +57,25 @@ describe('App auth flow', () => {
   })
 
   it('submits register successfully and shows the toast message', async () => {
-    fetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        success: true,
-        message: 'Welcome aboard, Gal!',
-        toastMessage: "I'll be back.",
-      }),
-    })
+    fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          message: 'Welcome aboard, Gal!',
+          toastPending: true,
+          user: {
+            email: 'gal@example.com',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ready: true,
+          toastMessage: "I'll be back.",
+        }),
+      })
 
     render(<App />)
 
@@ -91,7 +102,7 @@ describe('App auth flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Register' }))
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledTimes(1)
+      expect(fetch).toHaveBeenCalledTimes(2)
     })
 
     expect(await screen.findByText('Welcome aboard, Gal!')).toBeInTheDocument()

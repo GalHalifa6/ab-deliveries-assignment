@@ -16,6 +16,9 @@ const INITIAL_SUBMIT_STATE = {
   message: '',
 }
 
+const TOAST_POLL_DELAY_MS = 1000
+const TOAST_POLL_MAX_ATTEMPTS = 12
+
 const AUTH_MODE_CONFIG = {
   login: {
     endpoint: 'login',
@@ -235,6 +238,28 @@ function App() {
     setSubmitState(INITIAL_SUBMIT_STATE)
   }
 
+  const pollForToastMessage = async (email, attempt = 0) => {
+    if (!email || attempt >= TOAST_POLL_MAX_ATTEMPTS) {
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/user-toast?email=${encodeURIComponent(email)}`)
+      const data = await response.json()
+
+      if (response.ok && data.ready && data.toastMessage) {
+        setToastMessage(data.toastMessage)
+        return
+      }
+    } catch {
+      return
+    }
+
+    window.setTimeout(() => {
+      pollForToastMessage(email, attempt + 1)
+    }, TOAST_POLL_DELAY_MS)
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault()
 
@@ -290,8 +315,9 @@ function App() {
         message: data.message || currentModeConfig.successMessage,
       })
 
-      if (isRegisterMode && data.toastMessage) {
-        setToastMessage(data.toastMessage)
+      if (isRegisterMode) {
+        const registeredEmail = data.user?.email || formData.email
+        pollForToastMessage(registeredEmail)
       }
 
       setFormData((current) => currentModeConfig.resetFormData(current))

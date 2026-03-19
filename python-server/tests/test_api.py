@@ -18,6 +18,15 @@ class FakeUsersCollection:
         self.documents[document["email"]] = dict(document)
         return SimpleNamespace(inserted_id=document["email"])
 
+    def update_one(self, query, update):
+        document = self.documents.get(query["email"])
+
+        if not document:
+            return SimpleNamespace(matched_count=0, modified_count=0)
+
+        document.update(update.get("$set", {}))
+        return SimpleNamespace(matched_count=1, modified_count=1)
+
 
 class PythonServerApiIntegrationTests(unittest.TestCase):
     def setUp(self):
@@ -52,12 +61,27 @@ class PythonServerApiIntegrationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertTrue(body["success"])
-        self.assertEqual(body["toastMessage"], "Test toast message")
+        self.assertTrue(body["toastPending"])
 
         stored_user = self.fake_collection.documents["gal@example.com"]
         self.assertEqual(stored_user["toastMessage"], "Test toast message")
         self.assertNotEqual(stored_user["passwordHash"], payload["password"])
         self.assertTrue(main.pwd_context.verify(payload["password"], stored_user["passwordHash"]))
+
+    def test_user_toast_returns_ready_when_toast_exists(self):
+        self.fake_collection.documents["gal@example.com"] = {
+            "fullName": "Gal Halifa",
+            "phone": "0501234567",
+            "email": "gal@example.com",
+            "passwordHash": "hash",
+            "toastMessage": "Stored toast",
+        }
+
+        response = self.client.get("/user-toast", params={"email": "gal@example.com"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["ready"])
+        self.assertEqual(response.json()["toastMessage"], "Stored toast")
 
     def test_register_rejects_duplicate_email(self):
         existing_password_hash = main.pwd_context.hash("existing123")

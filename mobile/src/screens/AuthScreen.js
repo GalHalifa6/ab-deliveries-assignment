@@ -16,6 +16,7 @@ import {
   INITIAL_FORM_DATA,
   INITIAL_SUBMIT_STATE,
 } from '../constants/auth'
+import { clearAccessToken, getAccessToken, saveAccessToken } from '../services/authStorage'
 import { colors, spacing, typography } from '../constants/theme'
 
 export function AuthScreen() {
@@ -73,14 +74,20 @@ export function AuthScreen() {
     Alert.alert('A.B Deliveries', message)
   }
 
-  const pollForToastMessage = async (email) => {
-    if (!email) {
+  const pollForToastMessage = async () => {
+    const accessToken = await getAccessToken()
+
+    if (!accessToken) {
       return
     }
 
     for (let attempt = 0; attempt < 12; attempt += 1) {
       try {
-        const response = await fetch(`${API_BASE_URL}/user-toast?email=${encodeURIComponent(email)}`)
+        const response = await fetch(`${API_BASE_URL}/me/toast`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        })
         const data = await response.json()
 
         if (response.ok && data.ready && data.toastMessage) {
@@ -132,6 +139,7 @@ export function AuthScreen() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Client-Type': 'mobile',
         },
         body: JSON.stringify(currentModeConfig.buildPayload(formData)),
       })
@@ -147,12 +155,17 @@ export function AuthScreen() {
         message: data.message || currentModeConfig.successMessage,
       })
 
+      if (data.auth?.accessToken) {
+        await saveAccessToken(data.auth.accessToken)
+      } else if (mode === 'login') {
+        await clearAccessToken()
+      }
+
       if (isRegisterMode) {
         if (data.toastMessage) {
           showToast(data.toastMessage)
         } else if (data.toastPending) {
-          const registeredEmail = data.user?.email || formData.email
-          void pollForToastMessage(registeredEmail)
+          void pollForToastMessage()
         }
       }
 

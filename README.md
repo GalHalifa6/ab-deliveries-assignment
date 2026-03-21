@@ -16,60 +16,71 @@ This repository contains the implementation for the A.B Deliveries technical ass
 Completed:
 
 - Project structure and documentation created
-- Web app scaffolded with Vite + React
-- Figma-inspired web login/registration UI implemented in `web/`
-- Web registration and login flows connected to the Python server
+- Figma-inspired login and registration flows implemented for web and mobile
 - Python backend scaffolded with FastAPI in `python-server/`
 - MongoDB connected locally and used for registration/login persistence
 - Duplicate email protection implemented in the backend
 - `node-ai/` scaffolded with a Node.js toast-message service
 - Python registration flow connected to the Node.js toast service
-- Web frontend displays the toast after successful registration
-- React Native mobile scaffold created in `mobile/`
-- Mobile login/register screen added with the same auth flow structure as web
-- Mobile app tested successfully in Expo Go on a physical iPhone
-- Mobile auth screen visually aligned further with the provided mobile Figma
-- Python backend now logs the toast message sent after registration
-- MongoDB now stores the toast message each registered user received
-- Environment-based API configuration is now added for web, mobile, Python, and Node services
-- Health endpoints are now available on both backend services
+- Toast generation is stored asynchronously after successful registration
+- Web auth is now secured with an `HttpOnly` cookie session
+- Mobile auth now uses a bearer access token returned by the Python API
+- Private user data now loads through authenticated endpoints instead of email query params
+- Health endpoints are available on both backend services
 - Docker support is now added for `web/`, `python-server/`, and `node-ai/`
-- Docker Compose now includes a local MongoDB service for a fuller local stack
-- Backend and web automated tests are now added
-- A root PowerShell test runner is now available in `scripts/run-tests.ps1`
-- GitHub Actions CI now runs Python, Node AI, and web tests on every push and pull request
-- Azure Container Registry is now created and used for image publishing
-- Azure Container Apps environment is now created and running in `northeurope`
-- `node-ai` is now deployed to Azure Container Apps
-- `python-server` is now deployed to Azure Container Apps
-- `web` is now deployed to Azure Container Apps
-- MongoDB Atlas is now connected successfully from the deployed Python backend
-- End-to-end registration now works from the live deployed web app
-- OpenAI toast generation is now connected through the deployed Node.js service
-- The deployed stack now uses `gpt-5-mini` for toast generation
-- Registration flow now saves the user immediately and then stores the toast message asynchronously
+- Docker Compose includes a local MongoDB service for a fuller local stack
+- Backend and web automated tests are in place
+- A root PowerShell test runner is available in `scripts/run-tests.ps1`
+- GitHub Actions CI runs Python, Node AI, and web tests on every push and pull request
+- Azure Container Registry is used for image publishing
+- Azure Container Apps host `web`, `python-server`, and `node-ai`
+- MongoDB Atlas is connected successfully from the deployed Python backend
 
 Still pending:
 
 - Final mobile visual polish
 - Hebrew AI chatbot and conversation logging
 - MongoDB credential rotation after deployment testing
-- Final polish of the delayed toast delivery UX
+- Optional refresh-token support if the mobile app later needs longer-lived sessions
+
+## Auth Model
+
+The project now uses a split auth approach that matches real-world client behavior:
+
+- `web/`
+  - logs in through `POST /login` or `POST /register`
+  - receives an `HttpOnly` session cookie from the Python API
+  - sends authenticated requests with `credentials: 'include'`
+- `mobile/`
+  - logs in through the same endpoints with `X-Client-Type: mobile`
+  - receives a short-lived bearer access token
+  - stores that token in Expo Secure Store and sends it in the `Authorization` header
+
+Protected API endpoints:
+
+- `GET /me`
+- `GET /me/toast`
+- `POST /logout`
+
+Important change:
+
+- the old `GET /user-toast?email=...` pattern is no longer used for private user data
+- toast polling now happens through the authenticated `GET /me/toast` route
 
 ## Planned Flow
 
-1. User submits the registration form from web or mobile.
+1. User submits the registration or login form from web or mobile.
 2. The frontend sends the request to the Python server.
-3. The Python server validates the data and stores it in MongoDB.
-4. After successful registration, the Python server requests a toast message from the Node.js AI service.
-5. The AI service calls OpenAI and returns a short message to the Python server.
-6. The Python server stores the user immediately, then requests the toast asynchronously and saves it in MongoDB.
-7. The frontend receives the successful registration response without waiting for the toast generation to block the request.
-8. The frontend checks for the generated toast and displays it when it becomes available.
+3. The Python server validates the data and stores or verifies the user in MongoDB.
+4. For web, the Python server creates a server-side session and sets an `HttpOnly` cookie.
+5. For mobile, the Python server returns a bearer access token.
+6. After successful registration, the Python server requests a toast message from the Node.js AI service in the background.
+7. The frontend polls `GET /me/toast` as the authenticated user until the toast is ready.
+8. The frontend displays the toast message when it becomes available.
 
 ## Design Note
 
-The provided Figma is login-oriented, but the same visual style will be used for the required registration experience.
+The provided Figma is login-oriented, but the same visual style is used for the required registration experience.
 
 ## Run Web Locally
 
@@ -90,9 +101,14 @@ Example env files are included in:
 
 Use those files to create local `.env` files before deployment.
 
+Additional local setup notes:
+
+- `mobile/` now uses `expo-secure-store` for access-token storage
+- after pulling the latest code, run `npm install` inside `mobile/` before starting Expo
+
 ## Azure Deployment
 
-The application is now deployed on Azure Container Apps.
+The application is deployed on Azure Container Apps.
 
 Live endpoints:
 
@@ -103,12 +119,12 @@ Live endpoints:
 Deployment notes:
 
 - Azure Container Registry stores the Docker images
-- Azure Container Apps hosts `web`, `python-server`, and `node-ai`
+- Azure Container Apps host `web`, `python-server`, and `node-ai`
 - MongoDB Atlas remains the external database
-- Python CORS is configured to allow the deployed web origin
-- `node-ai` now calls OpenAI using the `OPENAI_API_KEY` configured in Azure
+- Python CORS allows the deployed web origin with credentials enabled
+- Web session cookies can work on Azure because the browser and API stay on the Azure Container Apps domain family
+- `node-ai` calls OpenAI using the `OPENAI_API_KEY` configured in Azure
 - `OPENAI_MODEL` is currently set to `gpt-5-mini`
-- the current registration flow saves the user first and then stores the toast asynchronously
 
 For the deployment walkthrough and troubleshooting notes, see:
 
@@ -142,7 +158,6 @@ Key local ports:
 Important note:
 
 - The mobile Expo app is intentionally kept outside Docker
-- This keeps device testing simple while still containerizing the parts that matter most for backend/cloud readiness
 - `docker-compose.yml` overrides the Python container to use the internal service addresses for MongoDB and Node AI
 
 ## Run Tests
@@ -186,8 +201,8 @@ Current automated coverage:
 
 - `python-server/`
   - health endpoint integration test
-  - register endpoint integration tests
-  - login endpoint integration tests
+  - register/login tests for web-session and mobile-token clients
+  - protected endpoint tests for `/me`, `/me/toast`, and `/logout`
   - toast-fetch unit tests
 - `node-ai/`
   - health endpoint integration test
@@ -197,7 +212,7 @@ Current automated coverage:
 - `web/`
   - auth mode switching UI test
   - register validation UI test
-  - successful register + toast rendering UI test
+  - successful authenticated register + toast polling UI test
 
 ## CI/CD
 
@@ -212,35 +227,24 @@ What it does:
 - installs Node dependencies for `node-ai` and runs its tests
 - installs Node dependencies for `web` and runs its tests
 
-You do not need to run the workflow file manually. After you commit and push, GitHub runs it automatically in the repository `Actions` tab.
-
 ## Deployment Readiness
 
-The project is now prepared for deployment-oriented configuration and is deployed on Azure:
+The project is prepared for deployment-oriented configuration:
 
 - all important service settings are env-based
 - local `.env` files stay private and are gitignored
 - `.env.example` files document the required configuration
 - backend services expose `/health`
-- Docker support is available for the meaningful deployable services
+- browser auth uses an `HttpOnly` cookie instead of exposing a session token to JavaScript
+- mobile auth uses a bearer token stored with Expo Secure Store
+- Docker support is available for the deployable services
 - local and CI test flows are in place before Azure deployment
-- Azure Container Registry is in use for image publishing
-- Azure Container Apps are running for the web and backend services
-- MongoDB Atlas connectivity from Azure is now working
-
-Current containerization approach:
-
-- `web` is containerized as a static production-style build served by Nginx
-- `python-server` is containerized as the main backend API
-- `node-ai` is containerized as the toast/AI backend service and now calls OpenAI in production
-- `mongo` is included in Docker Compose for local full-stack development
-- `mobile` is intentionally not containerized
 
 ## Next Step
 
-The next step is to continue the post-registration flow:
+The next step is to continue hardening and polishing the product:
 
 1. Finish the remaining mobile visual polish
 2. Rotate the MongoDB Atlas credentials used during deployment testing
-3. Polish the delayed toast delivery UX after registration
+3. Add a production-grade password reset flow
 4. Continue with the Hebrew AI chatbot and conversation logging

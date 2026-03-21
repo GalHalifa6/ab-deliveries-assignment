@@ -89,12 +89,15 @@ sessions_collection = database[sessions_collection_name]
 
 
 def ensure_indexes():
-    if hasattr(users_collection, "create_index"):
-        users_collection.create_index("email", unique=True)
+    try:
+        if hasattr(users_collection, "create_index"):
+            users_collection.create_index("email", unique=True)
 
-    if hasattr(sessions_collection, "create_index"):
-        sessions_collection.create_index("sessionId", unique=True)
-        sessions_collection.create_index("expiresAt")
+        if hasattr(sessions_collection, "create_index"):
+            sessions_collection.create_index("sessionId", unique=True)
+            sessions_collection.create_index("expiresAt")
+    except (PyMongoError, ServerSelectionTimeoutError) as error:
+        logger.warning("Skipping MongoDB index creation during startup: %s", error)
 
 
 ensure_indexes()

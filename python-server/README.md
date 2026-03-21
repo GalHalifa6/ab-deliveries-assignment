@@ -55,7 +55,7 @@ What is covered:
 - `GET /me`
 - `GET /me/toast`
 - `GET /me/toast/stream`
-- toast message fetch success and fallback handling
+- toast message fetch success, retry handling, and the no-fake-fallback behavior
 
 CI:
 
@@ -86,4 +86,4 @@ Behavior notes:
 - private user data is now read through authenticated endpoints instead of email query parameters
 - `web` delivers the toast through an authenticated SSE stream instead of repeated polling
 - `mobile` uses a two-step fallback read of `GET /me/toast` after registration
-- toast fetches retry before falling back to a friendly default message
+- toast fetches retry, but if generation still fails the user stays saved and `toastMessage` remains empty

@@ -37,13 +37,36 @@ Completed:
 - Azure Container Registry is used for image publishing
 - Azure Container Apps host `web`, `python-server`, and `node-ai`
 - MongoDB Atlas is connected successfully from the deployed Python backend
+- The registration toast flow now saves the user first, waits for a real OpenAI-generated toast, and avoids writing a fake fallback message
+- Production `node-ai`, `python-server`, and `web` have been redeployed with the current toast-flow fixes
 
 Still pending:
 
 - Final mobile visual polish
 - Hebrew AI chatbot and conversation logging
+- Prompt documentation for the chatbot assignment section
+- Platform integration for the chatbot assignment section
 - MongoDB credential rotation after deployment testing
 - Optional refresh-token support if the mobile app later needs longer-lived sessions
+
+## Assignment Coverage
+
+Base assignment status:
+
+- Mobile registration UI in React Native: implemented
+- Web registration UI in React: implemented
+- Python backend: implemented
+- Azure deployment: implemented
+- MongoDB persistence: implemented
+- Post-registration toast from a second Node.js service: implemented
+- Toast text generated through OpenAI: implemented
+
+Extended assignment status:
+
+- Friendly Hebrew AI support agent: not implemented yet
+- Chatbot on WhatsApp, SMS, Instagram, Facebook, or website: not implemented yet
+- Conversation logging to Excel, Google Sheets, or similar: not implemented yet
+- Prompt presentation for the chatbot: not implemented yet
 
 ## Auth Model
 
@@ -79,9 +102,11 @@ Important change:
 4. For web, the Python server creates a server-side session and sets an `HttpOnly` cookie.
 5. For mobile, the Python server returns a bearer access token.
 6. After successful registration, the Python server requests a toast message from the Node.js AI service in the background.
-7. On web, the frontend opens `GET /me/toast/stream` and waits for the backend to push the toast event.
-8. On mobile, the app performs a minimal fallback check against `GET /me/toast` after 3 seconds and again 5 seconds later.
-9. The frontend displays the toast message when it becomes available.
+7. The Node.js AI service requests a real welcome message from OpenAI.
+8. If toast generation fails, the user remains saved and `toastMessage` stays empty instead of storing a fake fallback string.
+9. On web, the frontend opens `GET /me/toast/stream` and waits for the backend to push the toast event.
+10. On mobile, the app performs a minimal fallback check against `GET /me/toast` after 3 seconds and again 5 seconds later.
+11. The frontend displays the toast message when it becomes available.
 
 ## Design Note
 
@@ -208,16 +233,16 @@ Current automated coverage:
   - health endpoint integration test
   - register/login tests for web-session and mobile-token clients
   - protected endpoint tests for `/me`, `/me/toast`, and `/logout`
-  - toast-fetch unit tests
+  - toast-fetch unit tests, including the no-fake-fallback behavior
 - `node-ai/`
   - health endpoint integration test
-  - toast-message endpoint integration test
+  - toast-message success and failure endpoint integration tests
   - CORS preflight and 404 tests
-  - random message selection unit test
 - `web/`
   - auth mode switching UI test
   - register validation UI test
   - successful authenticated register + toast SSE UI test
+  - toast recovery tests for delayed backend generation
 
 ## CI/CD
 
@@ -250,6 +275,8 @@ The project is prepared for deployment-oriented configuration:
 The next step is to continue hardening and polishing the product:
 
 1. Finish the remaining mobile visual polish
-2. Rotate the MongoDB Atlas credentials used during deployment testing
-3. Add a production-grade password reset flow
-4. Continue with the Hebrew AI chatbot and conversation logging
+2. Implement the Hebrew AI chatbot on a supported platform
+3. Add conversation logging for the chatbot to Google Sheets, Excel, or a similar store
+4. Document the exact prompt used for the chatbot
+5. Rotate the MongoDB Atlas credentials used during deployment testing
+6. Add a production-grade password reset flow

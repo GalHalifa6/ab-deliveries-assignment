@@ -74,9 +74,11 @@ The implementation adapts that design language to support both registration and 
    - `web`: creates a session and sets an `HttpOnly` cookie
    - `mobile`: returns an access token
 5. Python queues a background task to request a toast from `node-ai`.
-6. `web` opens a single SSE connection to `GET /me/toast/stream`.
-7. `mobile` waits 3 seconds, checks `GET /me/toast`, then waits 5 more seconds and checks once more.
-8. The frontend displays the toast when it becomes available.
+6. `node-ai` requests a real welcome toast from OpenAI.
+7. If toast generation fails, the user record stays valid and `toastMessage` remains empty rather than storing a fake fallback string.
+8. `web` opens a single SSE connection to `GET /me/toast/stream`.
+9. `mobile` waits 3 seconds, checks `GET /me/toast`, then waits 5 more seconds and checks once more.
+10. The frontend displays the toast when it becomes available.
 
 ### Login
 
@@ -115,8 +117,8 @@ Current endpoints:
 The `node-ai/` service is responsible for:
 
 - generating short welcome toast messages
-- calling OpenAI when configured
-- falling back to predefined messages if OpenAI is unavailable
+- calling OpenAI for the toast content
+- returning an error if OpenAI generation is unavailable
 - exposing a health endpoint for deployment checks
 
 Current endpoints:
@@ -162,10 +164,11 @@ The test strategy is split by service:
   - `/logout`
   - `/me`
   - `/me/toast`
-  - toast-fetch fallback and retry behavior
+  - toast-fetch retry behavior and no-fake-fallback handling
 - `node-ai/tests/`
   - `/health`
   - `/toast-message`
+  - toast generation failure handling
   - CORS preflight
   - 404 handling
 - `web/src/test/`
@@ -188,3 +191,12 @@ The current architecture goal is:
 - authenticated user-owned data access
 - SSE-based toast delivery on web with a low-noise mobile fallback
 - production-friendly Azure deployment settings
+
+## Remaining Assignment Work
+
+Still not implemented in this repository:
+
+- the Hebrew customer-service and sales chatbot
+- chatbot deployment on WhatsApp, SMS, Instagram, Facebook, or a dedicated website surface
+- conversation logging to Google Sheets, Excel, or a similar tool
+- prompt documentation for the chatbot section of the assignment

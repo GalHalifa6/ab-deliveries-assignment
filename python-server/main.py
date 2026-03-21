@@ -1,4 +1,5 @@
 import base64
+import asyncio
 import hashlib
 import hmac
 import json
@@ -13,6 +14,7 @@ from urllib.request import urlopen
 import certifi
 from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, Header, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, EmailStr
 from pymongo import MongoClient
 from pymongo.errors import DuplicateKeyError, PyMongoError, ServerSelectionTimeoutError
@@ -457,3 +459,36 @@ def get_my_toast(current_user: dict = Depends(get_current_user)):
         "ready": bool(toast_message),
         "toastMessage": toast_message,
     }
+
+
+@app.get("/me/toast/stream")
+async def stream_my_toast(current_user: dict = Depends(get_current_user)):
+    email = current_user["email"]
+    stream_timeout_seconds = 12
+
+    async def event_stream():
+        started_at = time.monotonic()
+
+        while time.monotonic() - started_at < stream_timeout_seconds:
+            user = get_user_by_email(email)
+            toast_message = user.get("toastMessage") if user else None
+
+            if toast_message:
+                payload = json.dumps({"toastMessage": toast_message})
+                yield f"event: toast-ready\ndata: {payload}\n\n"
+                return
+
+            yield "event: heartbeat\ndata: {}\n\n"
+            await asyncio.sleep(0.5)
+
+        yield "event: timeout\ndata: {}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

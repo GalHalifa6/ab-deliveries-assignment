@@ -5,8 +5,42 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App.jsx'
 
 describe('App auth flow', () => {
+  let eventSourceInstances
+
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn())
+    eventSourceInstances = []
+
+    class MockEventSource {
+      constructor(url, options) {
+        this.url = url
+        this.options = options
+        this.listeners = new Map()
+        this.onerror = null
+        this.closed = false
+        eventSourceInstances.push(this)
+      }
+
+      addEventListener(eventName, listener) {
+        this.listeners.set(eventName, listener)
+      }
+
+      emit(eventName, payload) {
+        const listener = this.listeners.get(eventName)
+
+        if (listener) {
+          listener({
+            data: JSON.stringify(payload),
+          })
+        }
+      }
+
+      close() {
+        this.closed = true
+      }
+    }
+
+    vi.stubGlobal('EventSource', MockEventSource)
   })
 
   afterEach(() => {
@@ -69,13 +103,6 @@ describe('App auth flow', () => {
           },
         }),
       })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          ready: true,
-          toastMessage: "I'll be back.",
-        }),
-      })
 
     render(<App />)
 
@@ -102,10 +129,15 @@ describe('App auth flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Register' }))
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledTimes(2)
+      expect(fetch).toHaveBeenCalledTimes(1)
+    })
+
+    eventSourceInstances[0].emit('toast-ready', {
+      toastMessage: "I'll be back.",
     })
 
     expect(await screen.findByText('Welcome aboard, Gal!')).toBeInTheDocument()
     expect(await screen.findByRole('status')).toHaveTextContent("I'll be back.")
+    expect(eventSourceInstances[0].closed).toBe(true)
   })
 })

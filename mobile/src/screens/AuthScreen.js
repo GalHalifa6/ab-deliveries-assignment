@@ -74,33 +74,45 @@ export function AuthScreen() {
     Alert.alert('A.B Deliveries', message)
   }
 
-  const pollForToastMessage = async () => {
+  const fetchToastMessage = async (accessToken) => {
+    const response = await fetch(`${API_BASE_URL}/me/toast`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    })
+    const data = await response.json()
+
+    if (response.ok && data.ready && data.toastMessage) {
+      showToast(data.toastMessage)
+      return true
+    }
+
+    return false
+  }
+
+  const tryFetchToastMessageWithFallback = async () => {
     const accessToken = await getAccessToken()
 
     if (!accessToken) {
       return
     }
 
-    for (let attempt = 0; attempt < 12; attempt += 1) {
-      try {
-        const response = await fetch(`${API_BASE_URL}/me/toast`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        })
-        const data = await response.json()
+    try {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 3000)
+      })
 
-        if (response.ok && data.ready && data.toastMessage) {
-          showToast(data.toastMessage)
-          return
-        }
-      } catch {
+      if (await fetchToastMessage(accessToken)) {
         return
       }
 
       await new Promise((resolve) => {
-        setTimeout(resolve, 1000)
+        setTimeout(resolve, 5000)
       })
+
+      await fetchToastMessage(accessToken)
+    } catch {
+      return
     }
   }
 
@@ -165,7 +177,7 @@ export function AuthScreen() {
         if (data.toastMessage) {
           showToast(data.toastMessage)
         } else if (data.toastPending) {
-          void pollForToastMessage()
+          void tryFetchToastMessageWithFallback()
         }
       }
 

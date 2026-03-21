@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import illustrationImage from './assets/71b1ce93ba00a27b8ef291cb449e0a6ea47d2ba9.png'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
@@ -16,8 +16,6 @@ const INITIAL_SUBMIT_STATE = {
   message: '',
 }
 
-const TOAST_POLL_DELAY_MS = 1000
-const TOAST_POLL_MAX_ATTEMPTS = 12
 const WEB_CLIENT_TYPE = 'web'
 
 const AUTH_MODE_CONFIG = {
@@ -195,6 +193,7 @@ function App() {
   const [formData, setFormData] = useState(INITIAL_FORM_DATA)
   const [submitState, setSubmitState] = useState(INITIAL_SUBMIT_STATE)
   const [toastMessage, setToastMessage] = useState('')
+  const toastEventSourceRef = useRef(null)
 
   const isRegisterMode = mode === 'register'
   const currentModeConfig = AUTH_MODE_CONFIG[mode]
@@ -223,6 +222,10 @@ function App() {
     return () => window.clearTimeout(timeoutId)
   }, [toastMessage])
 
+  useEffect(() => () => {
+    toastEventSourceRef.current?.close()
+  }, [])
+
   const handleChange = (event) => {
     const { name, value } = event.target
 
@@ -237,6 +240,8 @@ function App() {
     setShowPassword(false)
     setShowConfirmPassword(false)
     setSubmitState(INITIAL_SUBMIT_STATE)
+    toastEventSourceRef.current?.close()
+    toastEventSourceRef.current = null
   }
 
   const fetchJson = async (path, options = {}) => {
@@ -252,25 +257,37 @@ function App() {
     return { response, data }
   }
 
-  const pollForToastMessage = async (attempt = 0) => {
-    if (attempt >= TOAST_POLL_MAX_ATTEMPTS) {
-      return
-    }
+  const subscribeToToastStream = () => {
+    toastEventSourceRef.current?.close()
 
-    try {
-      const { response, data } = await fetchJson('/me/toast')
+    const eventSource = new EventSource(`${API_BASE_URL}/me/toast/stream`, {
+      withCredentials: true,
+    })
 
-      if (response.ok && data.ready && data.toastMessage) {
-        setToastMessage(data.toastMessage)
-        return
+    toastEventSourceRef.current = eventSource
+
+    eventSource.addEventListener('toast-ready', (event) => {
+      try {
+        const payload = JSON.parse(event.data)
+
+        if (payload.toastMessage) {
+          setToastMessage(payload.toastMessage)
+        }
+      } finally {
+        eventSource.close()
+        toastEventSourceRef.current = null
       }
-    } catch {
-      return
-    }
+    })
 
-    window.setTimeout(() => {
-      pollForToastMessage(attempt + 1)
-    }, TOAST_POLL_DELAY_MS)
+    eventSource.addEventListener('timeout', () => {
+      eventSource.close()
+      toastEventSourceRef.current = null
+    })
+
+    eventSource.onerror = () => {
+      eventSource.close()
+      toastEventSourceRef.current = null
+    }
   }
 
   const handleSubmit = async (event) => {
@@ -328,7 +345,7 @@ function App() {
       })
 
       if (isRegisterMode) {
-        pollForToastMessage()
+        subscribeToToastStream()
       }
 
       setFormData((current) => currentModeConfig.resetFormData(current))

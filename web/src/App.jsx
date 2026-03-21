@@ -17,6 +17,7 @@ const INITIAL_SUBMIT_STATE = {
 }
 
 const WEB_CLIENT_TYPE = 'web'
+const TOAST_RECOVERY_DELAY_MS = 2000
 
 const AUTH_MODE_CONFIG = {
   login: {
@@ -257,6 +258,17 @@ function App() {
     return { response, data }
   }
 
+  const fetchReadyToast = async () => {
+    const { response, data } = await fetchJson('/me/toast')
+
+    if (response.ok && data.ready && data.toastMessage) {
+      setToastMessage(data.toastMessage)
+      return true
+    }
+
+    return false
+  }
+
   const subscribeToToastStream = () => {
     toastEventSourceRef.current?.close()
 
@@ -279,15 +291,31 @@ function App() {
       }
     })
 
-    eventSource.addEventListener('timeout', () => {
+    const runRecoveryFetch = async () => {
       eventSource.close()
       toastEventSourceRef.current = null
+
+      window.setTimeout(() => {
+        void fetchReadyToast()
+      }, TOAST_RECOVERY_DELAY_MS)
+    }
+
+    eventSource.addEventListener('timeout', () => {
+      void runRecoveryFetch()
+    })
+
+    eventSource.addEventListener('heartbeat', () => {
+      return
     })
 
     eventSource.onerror = () => {
+      void runRecoveryFetch()
+    }
+
+    eventSource.addEventListener('error', () => {
       eventSource.close()
       toastEventSourceRef.current = null
-    }
+    })
   }
 
   const handleSubmit = async (event) => {

@@ -110,6 +110,14 @@ export function AuthScreen() {
         setTimeout(resolve, 5000)
       })
 
+      if (await fetchToastMessage(accessToken)) {
+        return
+      }
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, 8000)
+      })
+
       await fetchToastMessage(accessToken)
     } catch {
       return

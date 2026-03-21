@@ -54,6 +54,7 @@ What is covered:
 - `POST /logout`
 - `GET /me`
 - `GET /me/toast`
+- `GET /me/toast/stream`
 - toast message fetch success and fallback handling
 
 CI:
@@ -75,6 +76,7 @@ Available endpoints:
 - `POST /logout`
 - `GET /me`
 - `GET /me/toast`
+- `GET /me/toast/stream`
 
 Behavior notes:
 
@@ -82,4 +84,6 @@ Behavior notes:
 - `web` auth uses an `HttpOnly` session cookie
 - `mobile` auth uses a bearer access token when `X-Client-Type: mobile` is sent
 - private user data is now read through authenticated endpoints instead of email query parameters
+- `web` delivers the toast through an authenticated SSE stream instead of repeated polling
+- `mobile` uses a two-step fallback read of `GET /me/toast` after registration
 - toast fetches retry before falling back to a friendly default message

@@ -45,6 +45,7 @@ Private user data now loads from:
 
 - `GET /me`
 - `GET /me/toast`
+- `GET /me/toast/stream`
 - `POST /logout`
 
 The old email-query-based private fetch flow should not be used in production.
@@ -59,7 +60,8 @@ The old email-query-based private fetch flow should not be used in production.
 4. On registration, Python saves the user immediately.
 5. Python requests a toast message from the deployed `node-ai` service asynchronously.
 6. Python stores the generated toast message with the user record.
-7. The client polls `GET /me/toast` as the authenticated user until the toast is ready.
+7. `web` opens a single authenticated SSE request to `GET /me/toast/stream` and waits for the toast event.
+8. `mobile` performs two low-noise fallback checks against `GET /me/toast` after registration.
 
 ## Deployment Sequence Used
 
@@ -123,10 +125,11 @@ Recommended notes:
 - The Hebrew chatbot and conversation logging are not implemented yet
 - MongoDB credentials used during testing should be rotated after deployment
 - Mobile currently uses an access-token flow without refresh-token rotation
+- Mobile toast delivery is intentionally simpler than web and can still miss very late toast writes
 
 ## Recommended Next Steps
 
 1. Rotate the MongoDB Atlas password and update the Azure app setting
-2. Add the new auth-related environment variables to `python-server`
-3. Verify the web login flow with browser dev tools and HTTPS cookies
+2. Verify the web login flow with browser dev tools and HTTPS cookies
+3. Decide whether mobile needs one more delayed toast check or a richer real-time channel later
 4. Add a password-reset flow when the core auth migration is stable

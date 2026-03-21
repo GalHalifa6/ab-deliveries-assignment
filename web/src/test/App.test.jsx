@@ -140,4 +140,69 @@ describe('App auth flow', () => {
     expect(await screen.findByRole('status')).toHaveTextContent("I'll be back.")
     expect(eventSourceInstances[0].closed).toBe(true)
   })
+
+  it(
+    'recovers the toast with one fetch when the SSE stream times out',
+    async () => {
+      fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            success: true,
+            message: 'Welcome aboard, Gal!',
+            toastPending: true,
+            user: {
+              email: 'gal@example.com',
+            },
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            ready: true,
+            toastMessage: 'Recovered toast message',
+          }),
+        })
+
+      render(<App />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+
+      fireEvent.change(screen.getByPlaceholderText('Full name'), {
+        target: { value: 'Gal Halifa' },
+      })
+      fireEvent.change(screen.getByPlaceholderText('Phone number'), {
+        target: { value: '0501234567' },
+      })
+      fireEvent.change(screen.getByPlaceholderText('Email'), {
+        target: { value: 'gal@example.com' },
+      })
+
+      const passwordInputs = screen.getAllByPlaceholderText('Password')
+      fireEvent.change(passwordInputs[0], {
+        target: { value: 'secret123' },
+      })
+      fireEvent.change(screen.getByPlaceholderText('Repeat password'), {
+        target: { value: 'secret123' },
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledTimes(1)
+      })
+
+      eventSourceInstances[0].emit('timeout', {})
+
+      await waitFor(
+        () => {
+          expect(fetch).toHaveBeenCalledTimes(2)
+        },
+        { timeout: 4000 }
+      )
+
+      expect(await screen.findByRole('status')).toHaveTextContent('Recovered toast message')
+    },
+    10000
+  )
 })

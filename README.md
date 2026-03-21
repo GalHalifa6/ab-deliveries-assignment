@@ -26,6 +26,8 @@ Completed:
 - Web auth is now secured with an `HttpOnly` cookie session
 - Mobile auth now uses a bearer access token returned by the Python API
 - Private user data now loads through authenticated endpoints instead of email query params
+- Web toast delivery now uses Server-Sent Events instead of repeated polling
+- Mobile toast delivery now uses a low-noise fallback check instead of aggressive polling
 - Health endpoints are available on both backend services
 - Docker support is now added for `web/`, `python-server/`, and `node-ai/`
 - Docker Compose includes a local MongoDB service for a fuller local stack
@@ -60,12 +62,14 @@ Protected API endpoints:
 
 - `GET /me`
 - `GET /me/toast`
+- `GET /me/toast/stream`
 - `POST /logout`
 
 Important change:
 
 - the old `GET /user-toast?email=...` pattern is no longer used for private user data
-- toast polling now happens through the authenticated `GET /me/toast` route
+- `web/` now opens a single authenticated SSE stream through `GET /me/toast/stream`
+- `mobile/` now checks `GET /me/toast` only twice after registration: once after 3 seconds and once 5 seconds later
 
 ## Planned Flow
 
@@ -75,8 +79,9 @@ Important change:
 4. For web, the Python server creates a server-side session and sets an `HttpOnly` cookie.
 5. For mobile, the Python server returns a bearer access token.
 6. After successful registration, the Python server requests a toast message from the Node.js AI service in the background.
-7. The frontend polls `GET /me/toast` as the authenticated user until the toast is ready.
-8. The frontend displays the toast message when it becomes available.
+7. On web, the frontend opens `GET /me/toast/stream` and waits for the backend to push the toast event.
+8. On mobile, the app performs a minimal fallback check against `GET /me/toast` after 3 seconds and again 5 seconds later.
+9. The frontend displays the toast message when it becomes available.
 
 ## Design Note
 
@@ -212,7 +217,7 @@ Current automated coverage:
 - `web/`
   - auth mode switching UI test
   - register validation UI test
-  - successful authenticated register + toast polling UI test
+  - successful authenticated register + toast SSE UI test
 
 ## CI/CD
 

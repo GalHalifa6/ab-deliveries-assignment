@@ -61,7 +61,7 @@ The implementation adapts that design language to support both registration and 
 
 - the same auth fields and actions as the web screen
 - layout adapted for mobile spacing and touch targets
-- token-backed authenticated toast polling after registration
+- token-backed authenticated toast fallback checks after registration
 
 ## Submission Flow
 
@@ -74,8 +74,9 @@ The implementation adapts that design language to support both registration and 
    - `web`: creates a session and sets an `HttpOnly` cookie
    - `mobile`: returns an access token
 5. Python queues a background task to request a toast from `node-ai`.
-6. The frontend polls `GET /me/toast` as the authenticated user.
-7. The frontend displays the toast when it becomes available.
+6. `web` opens a single SSE connection to `GET /me/toast/stream`.
+7. `mobile` waits 3 seconds, checks `GET /me/toast`, then waits 5 more seconds and checks once more.
+8. The frontend displays the toast when it becomes available.
 
 ### Login
 
@@ -107,6 +108,7 @@ Current endpoints:
 - `POST /logout`
 - `GET /me`
 - `GET /me/toast`
+- `GET /me/toast/stream`
 
 ## AI Toast Service
 
@@ -169,7 +171,7 @@ The test strategy is split by service:
 - `web/src/test/`
   - auth mode switching
   - registration validation
-  - authenticated register + toast polling flow
+  - authenticated register + toast SSE flow
 
 ## Design Clarification
 
@@ -184,4 +186,5 @@ The current architecture goal is:
 - secure browser auth with `HttpOnly` cookies
 - standard mobile auth with bearer tokens
 - authenticated user-owned data access
+- SSE-based toast delivery on web with a low-noise mobile fallback
 - production-friendly Azure deployment settings

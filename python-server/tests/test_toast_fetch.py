@@ -33,19 +33,13 @@ class ToastMessageUnitTests(unittest.TestCase):
         with patch.object(main, "urlopen", side_effect=URLError("boom")):
             message = main.fetch_toast_message()
 
-        self.assertEqual(
-            message,
-            "Welcome aboard. We are getting your first delivery update ready.",
-        )
+        self.assertIsNone(message)
 
-    def test_fetch_toast_message_returns_fallback_on_invalid_json(self):
+    def test_fetch_toast_message_returns_none_on_invalid_json(self):
         with patch.object(main, "urlopen", return_value=FakeHttpResponse("not-json")):
             message = main.fetch_toast_message()
 
-        self.assertEqual(
-            message,
-            "Welcome aboard. We are getting your first delivery update ready.",
-        )
+        self.assertIsNone(message)
 
     def test_fetch_toast_message_retries_before_returning_fallback(self):
         with (

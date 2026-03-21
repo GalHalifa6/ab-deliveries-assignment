@@ -98,6 +98,27 @@ class PythonServerApiIntegrationTests(unittest.TestCase):
         self.assertTrue(main.pwd_context.verify(payload["password"], stored_user["passwordHash"]))
         self.assertEqual(len(self.fake_sessions_collection.documents), 1)
 
+    def test_register_keeps_toast_empty_when_generation_fails(self):
+        self.toast_patch.stop()
+
+        with patch.object(main, "fetch_toast_message", return_value=None):
+            response = self.client.post(
+                "/register",
+                json={
+                    "fullName": "Gal Halifa",
+                    "phone": "0501234567",
+                    "email": "pending@example.com",
+                    "password": "secure123",
+                },
+            )
+
+        self.toast_patch = patch.object(main, "fetch_toast_message", return_value="Test toast message")
+        self.toast_patch.start()
+
+        self.assertEqual(response.status_code, 200)
+        stored_user = self.fake_users_collection.documents["pending@example.com"]
+        self.assertIsNone(stored_user["toastMessage"])
+
     def test_register_mobile_returns_access_token(self):
         response = self.client.post(
             "/register",

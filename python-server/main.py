@@ -8,7 +8,7 @@ import os
 import secrets
 import time
 from typing import List, Optional
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.request import urlopen
 
 import certifi
@@ -68,8 +68,8 @@ mongodb_name = os.getenv("MONGODB_DB_NAME", "ab_deliveries")
 users_collection_name = os.getenv("USERS_COLLECTION_NAME", "users")
 sessions_collection_name = os.getenv("SESSIONS_COLLECTION_NAME", "sessions")
 node_ai_url = os.getenv("NODE_AI_URL", "http://127.0.0.1:3001/toast-message")
-node_ai_timeout_seconds = float(os.getenv("NODE_AI_TIMEOUT_SECONDS", "7"))
-node_ai_retry_count = int(os.getenv("NODE_AI_RETRY_COUNT", "3"))
+node_ai_timeout_seconds = float(os.getenv("NODE_AI_TIMEOUT_SECONDS", "20"))
+node_ai_retry_count = int(os.getenv("NODE_AI_RETRY_COUNT", "2"))
 auth_token_secret = os.getenv("AUTH_TOKEN_SECRET", "local-dev-auth-token-secret-change-me")
 auth_access_token_ttl_seconds = int(os.getenv("AUTH_ACCESS_TOKEN_TTL_SECONDS", "1800"))
 session_cookie_name = os.getenv("SESSION_COOKIE_NAME", "ab_session")
@@ -283,21 +283,21 @@ def build_auth_response(email: str, client_type: str) -> dict:
     }
 
 
-def fetch_toast_message():
-    fallback_message = "Welcome aboard. We are getting your first delivery update ready."
-
+def fetch_toast_message() -> Optional[str]:
     for attempt in range(1, node_ai_retry_count + 1):
         try:
             with urlopen(node_ai_url, timeout=node_ai_timeout_seconds) as response:
                 payload = response.read().decode("utf-8")
 
             data = json.loads(payload)
-            toast_message = data.get("toastMessage")
+            toast_message = (data.get("toastMessage") or "").strip()
 
             if toast_message:
                 return toast_message
 
             logger.warning("Node AI response did not include toastMessage on attempt %s.", attempt)
+        except HTTPError as error:
+            logger.warning("Node AI returned HTTP %s on attempt %s.", error.code, attempt)
         except (TimeoutError, URLError) as error:
             logger.warning("Node AI request failed on attempt %s: %s", attempt, error)
         except json.JSONDecodeError as error:
@@ -306,11 +306,15 @@ def fetch_toast_message():
         if attempt < node_ai_retry_count:
             time.sleep(attempt * 0.5)
 
-    return fallback_message
+    return None
 
 
 def generate_and_store_toast_message(email: str):
     toast_message = fetch_toast_message()
+
+    if not toast_message:
+        logger.warning("Toast generation did not produce a message for %s.", email)
+        return
 
     users_collection.update_one(
         {"email": email.lower()},

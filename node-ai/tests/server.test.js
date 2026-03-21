@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
 
-import { createServer, pickRandomMessage, toastMessages } from '../server.js'
+import { createServer } from '../server.js'
 
 const makeRequest = (server, path, method = 'GET') =>
   new Promise((resolve, reject) => {
@@ -34,12 +34,6 @@ const makeRequest = (server, path, method = 'GET') =>
     request.end()
   })
 
-test('pickRandomMessage returns one of the supported toast messages', () => {
-  const message = pickRandomMessage()
-
-  assert.ok(toastMessages.includes(message))
-})
-
 test('GET /health returns service metadata', async () => {
   const server = createServer()
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
@@ -55,8 +49,10 @@ test('GET /health returns service metadata', async () => {
   }
 })
 
-test('GET /toast-message returns a random toast payload', async () => {
-  const server = createServer()
+test('GET /toast-message returns a generated toast payload', async () => {
+  const server = createServer({
+    generateToastMessageFn: async () => 'Freshly generated toast',
+  })
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
 
   try {
@@ -64,8 +60,26 @@ test('GET /toast-message returns a random toast payload', async () => {
 
     assert.equal(response.statusCode, 200)
     assert.equal(response.body.success, true)
-    assert.equal(typeof response.body.toastMessage, 'string')
-    assert.ok(response.body.toastMessage.length > 0)
+    assert.equal(response.body.toastMessage, 'Freshly generated toast')
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())))
+  }
+})
+
+test('GET /toast-message returns 503 when generation fails', async () => {
+  const server = createServer({
+    generateToastMessageFn: async () => {
+      throw new Error('boom')
+    },
+  })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+
+  try {
+    const response = await makeRequest(server, '/toast-message')
+
+    assert.equal(response.statusCode, 503)
+    assert.equal(response.body.success, false)
+    assert.equal(response.body.detail, 'Toast generation is currently unavailable.')
   } finally {
     await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())))
   }

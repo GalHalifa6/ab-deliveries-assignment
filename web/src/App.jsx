@@ -18,6 +18,7 @@ const INITIAL_SUBMIT_STATE = {
 
 const WEB_CLIENT_TYPE = 'web'
 const TOAST_RECOVERY_DELAY_MS = 2000
+const TOAST_RECOVERY_MAX_ATTEMPTS = 15
 
 const AUTH_MODE_CONFIG = {
   login: {
@@ -195,6 +196,7 @@ function App() {
   const [submitState, setSubmitState] = useState(INITIAL_SUBMIT_STATE)
   const [toastMessage, setToastMessage] = useState('')
   const toastEventSourceRef = useRef(null)
+  const toastRecoveryTimeoutRef = useRef(null)
 
   const isRegisterMode = mode === 'register'
   const currentModeConfig = AUTH_MODE_CONFIG[mode]
@@ -225,6 +227,10 @@ function App() {
 
   useEffect(() => () => {
     toastEventSourceRef.current?.close()
+    if (toastRecoveryTimeoutRef.current) {
+      window.clearTimeout(toastRecoveryTimeoutRef.current)
+      toastRecoveryTimeoutRef.current = null
+    }
   }, [])
 
   const handleChange = (event) => {
@@ -243,6 +249,10 @@ function App() {
     setSubmitState(INITIAL_SUBMIT_STATE)
     toastEventSourceRef.current?.close()
     toastEventSourceRef.current = null
+    if (toastRecoveryTimeoutRef.current) {
+      window.clearTimeout(toastRecoveryTimeoutRef.current)
+      toastRecoveryTimeoutRef.current = null
+    }
   }
 
   const fetchJson = async (path, options = {}) => {
@@ -269,8 +279,47 @@ function App() {
     return false
   }
 
-  const subscribeToToastStream = () => {
+  const clearToastRecoveryTimer = () => {
+    if (toastRecoveryTimeoutRef.current) {
+      window.clearTimeout(toastRecoveryTimeoutRef.current)
+      toastRecoveryTimeoutRef.current = null
+    }
+  }
+
+  const recoverToast = async (attempt = 1) => {
+    let isToastReady = false
+
+    try {
+      isToastReady = await fetchReadyToast()
+    } catch {
+      isToastReady = false
+    }
+
+    if (isToastReady || attempt >= TOAST_RECOVERY_MAX_ATTEMPTS) {
+      clearToastRecoveryTimer()
+      return
+    }
+
+    toastRecoveryTimeoutRef.current = window.setTimeout(() => {
+      void recoverToast(attempt + 1)
+    }, TOAST_RECOVERY_DELAY_MS)
+  }
+
+  const subscribeToToastStream = async () => {
     toastEventSourceRef.current?.close()
+    clearToastRecoveryTimer()
+
+    let isToastReady = false
+
+    try {
+      isToastReady = await fetchReadyToast()
+    } catch {
+      isToastReady = false
+    }
+
+    if (isToastReady) {
+      return
+    }
 
     const eventSource = new EventSource(`${API_BASE_URL}/me/toast/stream`, {
       withCredentials: true,
@@ -284,6 +333,7 @@ function App() {
 
         if (payload.toastMessage) {
           setToastMessage(payload.toastMessage)
+          clearToastRecoveryTimer()
         }
       } finally {
         eventSource.close()
@@ -291,12 +341,12 @@ function App() {
       }
     })
 
-    const runRecoveryFetch = async () => {
+    const runRecoveryFetch = () => {
       eventSource.close()
       toastEventSourceRef.current = null
-
-      window.setTimeout(() => {
-        void fetchReadyToast()
+      clearToastRecoveryTimer()
+      toastRecoveryTimeoutRef.current = window.setTimeout(() => {
+        void recoverToast()
       }, TOAST_RECOVERY_DELAY_MS)
     }
 
@@ -373,7 +423,8 @@ function App() {
       })
 
       if (isRegisterMode) {
-        subscribeToToastStream()
+        setToastMessage('')
+        void subscribeToToastStream()
       }
 
       setFormData((current) => currentModeConfig.resetFormData(current))

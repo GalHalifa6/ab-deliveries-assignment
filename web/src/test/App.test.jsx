@@ -103,6 +103,13 @@ describe('App auth flow', () => {
           },
         }),
       })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ready: false,
+          toastMessage: null,
+        }),
+      })
 
     render(<App />)
 
@@ -129,7 +136,7 @@ describe('App auth flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Register' }))
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledTimes(1)
+      expect(fetch).toHaveBeenCalledTimes(2)
     })
 
     eventSourceInstances[0].emit('toast-ready', {
@@ -154,6 +161,13 @@ describe('App auth flow', () => {
             user: {
               email: 'gal@example.com',
             },
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            ready: false,
+            toastMessage: null,
           }),
         })
         .mockResolvedValueOnce({
@@ -189,19 +203,98 @@ describe('App auth flow', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Register' }))
 
       await waitFor(() => {
-        expect(fetch).toHaveBeenCalledTimes(1)
+        expect(fetch).toHaveBeenCalledTimes(2)
       })
 
       eventSourceInstances[0].emit('timeout', {})
 
       await waitFor(
         () => {
-          expect(fetch).toHaveBeenCalledTimes(2)
+          expect(fetch).toHaveBeenCalledTimes(3)
         },
         { timeout: 4000 }
       )
 
       expect(await screen.findByRole('status')).toHaveTextContent('Recovered toast message')
+    },
+    10000
+  )
+
+  it(
+    'keeps retrying toast recovery until the message becomes ready',
+    async () => {
+      fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            success: true,
+            message: 'Welcome aboard, Gal!',
+            toastPending: true,
+            user: {
+              email: 'gal@example.com',
+            },
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            ready: false,
+            toastMessage: null,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            ready: false,
+            toastMessage: null,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({
+            ready: true,
+            toastMessage: 'Toast after retry',
+          }),
+        })
+
+      render(<App />)
+
+      fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+
+      fireEvent.change(screen.getByPlaceholderText('Full name'), {
+        target: { value: 'Gal Halifa' },
+      })
+      fireEvent.change(screen.getByPlaceholderText('Phone number'), {
+        target: { value: '0501234567' },
+      })
+      fireEvent.change(screen.getByPlaceholderText('Email'), {
+        target: { value: 'gal@example.com' },
+      })
+
+      const passwordInputs = screen.getAllByPlaceholderText('Password')
+      fireEvent.change(passwordInputs[0], {
+        target: { value: 'secret123' },
+      })
+      fireEvent.change(screen.getByPlaceholderText('Repeat password'), {
+        target: { value: 'secret123' },
+      })
+
+      fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledTimes(2)
+      })
+
+      eventSourceInstances[0].emit('timeout', {})
+
+      await waitFor(
+        () => {
+          expect(fetch).toHaveBeenCalledTimes(4)
+        },
+        { timeout: 7000 }
+      )
+
+      expect(await screen.findByRole('status')).toHaveTextContent('Toast after retry')
     },
     10000
   )

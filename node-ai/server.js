@@ -7,19 +7,6 @@ const PORT = Number(process.env.PORT || 3001)
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5-mini'
 const openAiClient = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null
 
-export const toastMessages = [
-  "If you want to shoot, shoot. Don't talk.",
-  "I'll be back.",
-  'Say hello to my little friend!.',
-  "Why so serious?",
-  "With great power comes great responsibility.",
-]
-
-export const pickRandomMessage = () => {
-  const index = Math.floor(Math.random() * toastMessages.length)
-  return toastMessages[index]
-}
-
 const buildToastPrompt = () =>
   [
     'Write one short welcome toast message for a new delivery-platform user.',
@@ -35,26 +22,21 @@ const buildToastPrompt = () =>
 
 export const generateToastMessage = async () => {
   if (!openAiClient) {
-    return pickRandomMessage()
+    throw new Error('OPENAI_API_KEY is not configured for node-ai.')
   }
 
-  try {
-    const response = await openAiClient.responses.create({
-      model: OPENAI_MODEL,
-      input: buildToastPrompt(),
-    })
+  const response = await openAiClient.responses.create({
+    model: OPENAI_MODEL,
+    input: buildToastPrompt(),
+  })
 
-    const toastMessage = response.output_text?.trim()
+  const toastMessage = response.output_text?.trim()
 
-    if (!toastMessage) {
-      return pickRandomMessage()
-    }
-
-    return toastMessage
-  } catch (error) {
-    console.error('OpenAI toast generation failed:', error)
-    return pickRandomMessage()
+  if (!toastMessage) {
+    throw new Error('OpenAI returned an empty toast message.')
   }
+
+  return toastMessage
 }
 
 const sendJson = (response, statusCode, payload) => {
@@ -67,7 +49,7 @@ const sendJson = (response, statusCode, payload) => {
   response.end(JSON.stringify(payload))
 }
 
-export const createServer = () =>
+export const createServer = ({ generateToastMessageFn = generateToastMessage } = {}) =>
   http.createServer(async (request, response) => {
     if (request.method === 'OPTIONS') {
       sendJson(response, 200, { ok: true })
@@ -85,12 +67,21 @@ export const createServer = () =>
     }
 
     if (request.method === 'GET' && request.url === '/toast-message') {
-      const toastMessage = await generateToastMessage()
+      try {
+        const toastMessage = await generateToastMessageFn()
 
-      sendJson(response, 200, {
-        success: true,
-        toastMessage,
-      })
+        sendJson(response, 200, {
+          success: true,
+          toastMessage,
+        })
+      } catch (error) {
+        console.error('OpenAI toast generation failed:', error)
+        sendJson(response, 503, {
+          success: false,
+          detail: 'Toast generation is currently unavailable.',
+        })
+      }
+
       return
     }
 

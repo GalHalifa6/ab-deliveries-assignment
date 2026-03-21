@@ -1,6 +1,6 @@
 # Azure Deployment Notes
 
-This document records the Azure deployment that is currently working for the A.B Deliveries assignment.
+This document records the Azure deployment shape that is currently working for the A.B Deliveries assignment and the additional auth settings required by the new web and mobile security flow.
 
 ## Current Azure Resources
 
@@ -17,22 +17,49 @@ This document records the Azure deployment that is currently working for the A.B
 
 ## Architecture Used In Azure
 
-The deployed stack currently uses:
+The deployed stack uses:
 
 - `web/` as a static React build served by Nginx
 - `python-server/` as the main FastAPI backend
 - `node-ai/` as the toast-message backend
 - MongoDB Atlas as the external database
 
-Flow in production:
+## Auth Behavior In Production
 
-1. The browser loads the deployed React app.
-2. The React app sends register/login requests to the deployed Python API.
-3. The Python API connects to MongoDB Atlas.
+### Web
+
+- the browser authenticates with an `HttpOnly` cookie issued by `python-server`
+- the frontend must call the API with `credentials: 'include'`
+- the Python API must keep `allow_credentials=True` in CORS
+- `SESSION_COOKIE_SECURE` should be `true` in Azure so the cookie is sent only over HTTPS
+
+### Mobile
+
+- the mobile app sends `X-Client-Type: mobile` on login and register
+- the Python API returns a bearer access token
+- the mobile app stores that token locally and sends it in the `Authorization` header for protected requests
+
+### Protected Routes
+
+Private user data now loads from:
+
+- `GET /me`
+- `GET /me/toast`
+- `POST /logout`
+
+The old email-query-based private fetch flow should not be used in production.
+
+## Flow In Production
+
+1. The browser or mobile app loads the client UI.
+2. The client sends register or login requests to the Python API.
+3. The Python API verifies credentials and authenticates the user:
+   - `web`: sets a session cookie
+   - `mobile`: returns an access token
 4. On registration, Python saves the user immediately.
 5. Python requests a toast message from the deployed `node-ai` service asynchronously.
 6. Python stores the generated toast message with the user record.
-7. The frontend can show the toast after the message becomes available.
+7. The client polls `GET /me/toast` as the authenticated user until the toast is ready.
 
 ## Deployment Sequence Used
 
@@ -51,8 +78,6 @@ The working deployment was created in this order:
 11. Deploy `web`
 12. Update Python CORS for the live web URL
 13. Add OpenAI environment variables to `ab-node-ai`
-14. Rebuild and redeploy `node-ai` with the OpenAI integration
-15. Rebuild and redeploy `python-server` and `web` for the delayed-toast flow
 
 ## Important Azure Notes
 
@@ -72,18 +97,36 @@ The following fixes were required during deployment:
 - The Python backend was updated to handle Node AI timeouts gracefully
 - `node-ai` now uses OpenAI through `OPENAI_API_KEY` and `OPENAI_MODEL`
 - The deployed model is currently `gpt-5-mini`
-- The registration flow now saves the user first and stores the toast asynchronously
-- The Python backend now retries toast fetches before storing the friendly fallback message
+- The registration flow saves the user first and stores the toast asynchronously
+
+## Required Azure App Settings
+
+The Python backend now needs these auth-related settings in Azure in addition to the database and Node AI settings:
+
+- `AUTH_TOKEN_SECRET`
+- `AUTH_ACCESS_TOKEN_TTL_SECONDS`
+- `SESSION_COOKIE_NAME`
+- `SESSION_COOKIE_SECURE=true`
+- `SESSION_COOKIE_SAMESITE=lax`
+- `SESSION_COOKIE_TTL_SECONDS`
+- `SESSIONS_COLLECTION_NAME`
+- `ALLOWED_ORIGINS`
+
+Recommended notes:
+
+- use a strong random value for `AUTH_TOKEN_SECRET`
+- keep `SESSION_COOKIE_SECURE=true` in Azure
+- if the deployment topology changes to a truly cross-site setup, re-check the `SameSite` strategy
 
 ## Current Known Limitations
 
 - The Hebrew chatbot and conversation logging are not implemented yet
 - MongoDB credentials used during testing should be rotated after deployment
-- The delayed toast delivery UX still needs final polish
+- Mobile currently uses an access-token flow without refresh-token rotation
 
 ## Recommended Next Steps
 
 1. Rotate the MongoDB Atlas password and update the Azure app setting
-2. Polish the delayed toast delivery UX after registration
-3. Add the Hebrew chatbot and conversation logging flow
-4. Optionally move `node-ai` to internal-only service-to-service access after the current flow is finalized
+2. Add the new auth-related environment variables to `python-server`
+3. Verify the web login flow with browser dev tools and HTTPS cookies
+4. Add a password-reset flow when the core auth migration is stable

@@ -18,6 +18,7 @@ const INITIAL_SUBMIT_STATE = {
 
 const TOAST_POLL_DELAY_MS = 1000
 const TOAST_POLL_MAX_ATTEMPTS = 12
+const WEB_CLIENT_TYPE = 'web'
 
 const AUTH_MODE_CONFIG = {
   login: {
@@ -238,14 +239,26 @@ function App() {
     setSubmitState(INITIAL_SUBMIT_STATE)
   }
 
-  const pollForToastMessage = async (email, attempt = 0) => {
-    if (!email || attempt >= TOAST_POLL_MAX_ATTEMPTS) {
+  const fetchJson = async (path, options = {}) => {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      credentials: 'include',
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+      },
+    })
+    const data = await response.json()
+
+    return { response, data }
+  }
+
+  const pollForToastMessage = async (attempt = 0) => {
+    if (attempt >= TOAST_POLL_MAX_ATTEMPTS) {
       return
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/user-toast?email=${encodeURIComponent(email)}`)
-      const data = await response.json()
+      const { response, data } = await fetchJson('/me/toast')
 
       if (response.ok && data.ready && data.toastMessage) {
         setToastMessage(data.toastMessage)
@@ -256,7 +269,7 @@ function App() {
     }
 
     window.setTimeout(() => {
-      pollForToastMessage(email, attempt + 1)
+      pollForToastMessage(attempt + 1)
     }, TOAST_POLL_DELAY_MS)
   }
 
@@ -296,15 +309,14 @@ function App() {
       const endpoint = currentModeConfig.endpoint
       const payload = currentModeConfig.buildPayload(formData)
 
-      const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
+      const { response, data } = await fetchJson(`/${endpoint}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Client-Type': WEB_CLIENT_TYPE,
         },
         body: JSON.stringify(payload),
       })
-
-      const data = await response.json()
 
       if (!response.ok) {
         throw new Error(data.detail || 'Registration failed.')
@@ -316,8 +328,7 @@ function App() {
       })
 
       if (isRegisterMode) {
-        const registeredEmail = data.user?.email || formData.email
-        pollForToastMessage(registeredEmail)
+        pollForToastMessage()
       }
 
       setFormData((current) => currentModeConfig.resetFormData(current))

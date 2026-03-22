@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import patch
 from urllib.error import URLError
 
-import main
+from app.services import toast_service
 
 
 class FakeHttpResponse:
@@ -24,28 +24,32 @@ class ToastMessageUnitTests(unittest.TestCase):
     def test_fetch_toast_message_returns_message_from_node_ai(self):
         payload = json.dumps({"toastMessage": "Industry standard toast"})
 
-        with patch.object(main, "urlopen", return_value=FakeHttpResponse(payload)):
-            message = main.fetch_toast_message()
+        with patch.object(toast_service, "urlopen", return_value=FakeHttpResponse(payload)):
+            message = toast_service.fetch_toast_message()
 
         self.assertEqual(message, "Industry standard toast")
 
     def test_fetch_toast_message_returns_fallback_on_url_error(self):
-        with patch.object(main, "urlopen", side_effect=URLError("boom")):
-            message = main.fetch_toast_message()
+        with patch.object(toast_service, "urlopen", side_effect=URLError("boom")):
+            message = toast_service.fetch_toast_message()
 
         self.assertIsNone(message)
 
     def test_fetch_toast_message_returns_none_on_invalid_json(self):
-        with patch.object(main, "urlopen", return_value=FakeHttpResponse("not-json")):
-            message = main.fetch_toast_message()
+        with patch.object(toast_service, "urlopen", return_value=FakeHttpResponse("not-json")):
+            message = toast_service.fetch_toast_message()
 
         self.assertIsNone(message)
 
     def test_fetch_toast_message_retries_before_returning_fallback(self):
         with (
-            patch.object(main, "urlopen", side_effect=[URLError("boom"), FakeHttpResponse(json.dumps({"toastMessage": "Retry success"}))]),
-            patch.object(main.time, "sleep"),
+            patch.object(
+                toast_service,
+                "urlopen",
+                side_effect=[URLError("boom"), FakeHttpResponse(json.dumps({"toastMessage": "Retry success"}))],
+            ),
+            patch.object(toast_service.time, "sleep"),
         ):
-            message = main.fetch_toast_message()
+            message = toast_service.fetch_toast_message()
 
         self.assertEqual(message, "Retry success")

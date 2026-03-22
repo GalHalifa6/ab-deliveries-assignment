@@ -28,16 +28,19 @@ The deployed stack uses:
 
 ### Web
 
-- the browser authenticates with an `HttpOnly` cookie issued by `python-server`
-- the frontend must call the API with `credentials: 'include'`
+- the browser keeps the short-lived access token in memory
+- the Python API sets the refresh token in an `HttpOnly` cookie
+- the frontend calls normal API routes with `Authorization: Bearer <accessToken>`
+- the frontend calls refresh and stream-cookie endpoints with `credentials: 'include'`
 - the Python API must keep `allow_credentials=True` in CORS
-- `SESSION_COOKIE_SECURE` should be `true` in Azure so the cookie is sent only over HTTPS
+- `REFRESH_COOKIE_SECURE` and `STREAM_COOKIE_SECURE` should be `true` in Azure so cookies are sent only over HTTPS
 
 ### Mobile
 
 - the mobile app sends `X-Client-Type: mobile` on login and register
-- the Python API returns a bearer access token
-- the mobile app stores that token locally and sends it in the `Authorization` header for protected requests
+- the Python API returns both an access token and a refresh token
+- the mobile app stores both tokens securely and sends the access token in the `Authorization` header for protected requests
+- mobile refreshes with the stored refresh token when the access token expires
 
 ### Protected Routes
 
@@ -46,7 +49,10 @@ Private user data now loads from:
 - `GET /me`
 - `GET /me/toast`
 - `GET /me/toast/stream`
+- `POST /refresh`
 - `POST /logout`
+- `POST /logout-all`
+- `POST /me/toast/stream-session`
 
 The old email-query-based private fetch flow should not be used in production.
 
@@ -55,13 +61,14 @@ The old email-query-based private fetch flow should not be used in production.
 1. The browser or mobile app loads the client UI.
 2. The client sends register or login requests to the Python API.
 3. The Python API verifies credentials and authenticates the user:
-   - `web`: sets a session cookie
-   - `mobile`: returns an access token
+   - `web`: returns an access token and sets a refresh cookie
+   - `mobile`: returns an access token and a refresh token
 4. On registration, Python saves the user immediately.
 5. Python requests a toast message from the deployed `node-ai` service asynchronously.
 6. Python stores the generated toast message with the user record.
-7. `web` opens a single authenticated SSE request to `GET /me/toast/stream` and waits for the toast event.
-8. `mobile` performs two low-noise fallback checks against `GET /me/toast` after registration.
+7. `web` silently restores access with `POST /refresh` when needed and uses `POST /me/toast/stream-session` to obtain a short-lived stream cookie for SSE.
+8. `web` opens a single authenticated SSE request to `GET /me/toast/stream` and waits for the toast event.
+9. `mobile` refreshes tokens when needed and performs two low-noise fallback checks against `GET /me/toast` after registration.
 
 ## Deployment Sequence Used
 
@@ -105,27 +112,35 @@ The following fixes were required during deployment:
 
 The Python backend now needs these auth-related settings in Azure in addition to the database and Node AI settings:
 
-- `AUTH_TOKEN_SECRET`
+- `JWT_ACCESS_TOKEN_SECRET`
+- `JWT_ISSUER`
+- `JWT_AUDIENCE`
 - `AUTH_ACCESS_TOKEN_TTL_SECONDS`
-- `SESSION_COOKIE_NAME`
-- `SESSION_COOKIE_SECURE=true`
-- `SESSION_COOKIE_SAMESITE=lax`
-- `SESSION_COOKIE_TTL_SECONDS`
-- `SESSIONS_COLLECTION_NAME`
+- `AUTH_REFRESH_TOKEN_TTL_SECONDS`
+- `STREAM_TOKEN_SECRET`
+- `STREAM_TOKEN_TTL_SECONDS`
+- `ACCESS_TOKEN_REQUIRE_ACTIVE_SESSION`
+- `REFRESH_COOKIE_NAME`
+- `REFRESH_COOKIE_SECURE=true`
+- `REFRESH_COOKIE_SAMESITE=lax`
+- `STREAM_COOKIE_NAME`
+- `STREAM_COOKIE_SECURE=true`
+- `STREAM_COOKIE_SAMESITE=lax`
+- `REFRESH_SESSIONS_COLLECTION_NAME`
 - `ALLOWED_ORIGINS`
 
 Recommended notes:
 
-- use a strong random value for `AUTH_TOKEN_SECRET`
-- keep `SESSION_COOKIE_SECURE=true` in Azure
+- use strong random values for `JWT_ACCESS_TOKEN_SECRET` and `STREAM_TOKEN_SECRET`
+- keep `REFRESH_COOKIE_SECURE=true` and `STREAM_COOKIE_SECURE=true` in Azure
+- keep `ACCESS_TOKEN_REQUIRE_ACTIVE_SESSION=false` unless you intentionally want DB-backed access-token revocation checks
 - if the deployment topology changes to a truly cross-site setup, re-check the `SameSite` strategy
 
 ## Current Known Limitations
 
 - The Hebrew chatbot and conversation logging are not implemented yet
 - MongoDB credentials used during testing should be rotated after deployment
-- Mobile currently uses an access-token flow without refresh-token rotation
-- Mobile toast delivery is intentionally simpler than web and can still miss very late toast writes
+- Mobile does not yet have end-to-end UI tests, only focused auth service tests
 
 ## Recommended Next Steps
 

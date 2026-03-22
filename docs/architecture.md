@@ -19,19 +19,21 @@ The project now uses a client-specific auth design that is close to production p
 
 ### Web
 
-- the browser authenticates with an `HttpOnly` session cookie
-- the cookie is set by the Python API after successful register or login
-- the React app sends authenticated requests with `credentials: 'include'`
+- the browser keeps the short-lived access token in memory
+- the Python API sets the refresh token in an `HttpOnly` cookie after successful register or login
+- the React app sends authenticated API requests with `Authorization: Bearer <accessToken>`
+- the React app calls refresh and stream-cookie endpoints with `credentials: 'include'`
 - private user data is loaded through authenticated routes instead of query-string email lookups
 
 ### Mobile
 
-- the mobile app authenticates with a bearer access token
-- the token is returned by the Python API when the request includes `X-Client-Type: mobile`
-- the token is stored in Expo Secure Store
+- the mobile app authenticates with a bearer access token plus a refresh token
+- both tokens are returned by the Python API when the request includes `X-Client-Type: mobile`
+- both tokens are stored in Expo Secure Store
 - protected mobile requests send `Authorization: Bearer <token>`
+- when the access token expires, the mobile app refreshes and stores the rotated token pair
 
-This split keeps the browser flow safer and more natural while still giving the mobile app a standard API-style auth flow.
+This split keeps the browser flow safer and more natural while still giving both clients a modern JWT-based auth flow.
 
 ## Screens
 
@@ -71,13 +73,14 @@ The implementation adapts that design language to support both registration and 
 2. The frontend sends the data to the Python server.
 3. Python validates the payload and saves the user in MongoDB.
 4. Python authenticates the user immediately:
-   - `web`: creates a session and sets an `HttpOnly` cookie
-   - `mobile`: returns an access token
+   - `web`: returns a short-lived access token and sets a refresh cookie
+   - `mobile`: returns a short-lived access token and a refresh token
 5. Python queues a background task to request a toast from `node-ai`.
 6. `node-ai` requests a real welcome toast from OpenAI.
 7. If toast generation fails, the user record stays valid and `toastMessage` remains empty rather than storing a fake fallback string.
-8. `web` opens a single SSE connection to `GET /me/toast/stream`.
-9. `mobile` waits 3 seconds, checks `GET /me/toast`, then waits 5 more seconds and checks once more.
+8. `web` can silently restore the access token with the refresh cookie and obtains a short-lived stream cookie before opening SSE.
+9. `web` opens a single SSE connection to `GET /me/toast/stream`.
+10. `mobile` waits 3 seconds, checks `GET /me/toast`, then waits 5 more seconds and checks once more.
 10. The frontend displays the toast when it becomes available.
 
 ### Login
@@ -95,8 +98,9 @@ The `python-server/` service is responsible for:
 - validating submitted data
 - hashing and verifying passwords
 - saving users in MongoDB
-- creating and validating web sessions
-- issuing and validating mobile access tokens
+- issuing and validating JWT access tokens
+- issuing, rotating, and revoking refresh tokens
+- storing refresh-token sessions in MongoDB
 - exposing protected user endpoints
 - calling the Node.js AI service after successful registration
 - storing the generated toast with the user document
@@ -107,9 +111,12 @@ Current endpoints:
 - `GET /health`
 - `POST /register`
 - `POST /login`
+- `POST /refresh`
 - `POST /logout`
+- `POST /logout-all`
 - `GET /me`
 - `GET /me/toast`
+- `POST /me/toast/stream-session`
 - `GET /me/toast/stream`
 
 ## AI Toast Service
@@ -135,7 +142,7 @@ MongoDB stores:
 - phone and full name
 - generated toast message
 - created date
-- server-side web sessions
+- refresh-token sessions used for rotation and revocation
 
 ## Deployment
 
@@ -150,7 +157,8 @@ Production planning includes:
 
 - env-based secret management
 - CORS with credentials enabled for the web client
-- `SESSION_COOKIE_SECURE=true` in Azure
+- `REFRESH_COOKIE_SECURE=true` in Azure
+- `STREAM_COOKIE_SECURE=true` in Azure
 - auth secrets configured through Azure-managed environment variables
 
 ## Testing Strategy
@@ -161,9 +169,12 @@ The test strategy is split by service:
   - `/health`
   - `/register`
   - `/login`
+  - `/refresh`
   - `/logout`
+  - `/logout-all`
   - `/me`
   - `/me/toast`
+  - `/me/toast/stream-session`
   - toast-fetch retry behavior and no-fake-fallback handling
 - `node-ai/tests/`
   - `/health`
@@ -186,8 +197,10 @@ The project is now past the initial demo-auth stage.
 
 The current architecture goal is:
 
-- secure browser auth with `HttpOnly` cookies
-- standard mobile auth with bearer tokens
+- short-lived JWT access tokens for both clients
+- refresh-token session control through MongoDB
+- in-memory access tokens plus secure cookies for browser refresh and SSE
+- secure token storage and refresh rotation on mobile
 - authenticated user-owned data access
 - SSE-based toast delivery on web with a low-noise mobile fallback
 - production-friendly Azure deployment settings

@@ -1,7 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useState } from 'react'
 import illustrationImage from './assets/71b1ce93ba00a27b8ef291cb449e0a6ea47d2ba9.png'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+import { useAuthToastSession } from './hooks/useAuthToastSession'
 
 const INITIAL_FORM_DATA = {
   fullName: '',
@@ -17,8 +16,6 @@ const INITIAL_SUBMIT_STATE = {
 }
 
 const WEB_CLIENT_TYPE = 'web'
-const TOAST_RECOVERY_DELAY_MS = 2000
-const TOAST_RECOVERY_MAX_ATTEMPTS = 15
 
 const AUTH_MODE_CONFIG = {
   login: {
@@ -194,9 +191,16 @@ function App() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [formData, setFormData] = useState(INITIAL_FORM_DATA)
   const [submitState, setSubmitState] = useState(INITIAL_SUBMIT_STATE)
-  const [toastMessage, setToastMessage] = useState('')
-  const toastEventSourceRef = useRef(null)
-  const toastRecoveryTimeoutRef = useRef(null)
+  const {
+    clearAccessToken,
+    fetchJson,
+    resetToastStream,
+    setCurrentAccessToken,
+    sessionExpiredMessage,
+    setToastMessage,
+    subscribeToToastStream,
+    toastMessage,
+  } = useAuthToastSession()
 
   const isRegisterMode = mode === 'register'
   const currentModeConfig = AUTH_MODE_CONFIG[mode]
@@ -213,26 +217,6 @@ function App() {
   )
   const isSubmitDisabled = isSubmitting || (isRegisterMode ? !isRegisterFormValid : !isLoginFormValid)
 
-  useEffect(() => {
-    if (!toastMessage) {
-      return undefined
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setToastMessage('')
-    }, 4000)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [toastMessage])
-
-  useEffect(() => () => {
-    toastEventSourceRef.current?.close()
-    if (toastRecoveryTimeoutRef.current) {
-      window.clearTimeout(toastRecoveryTimeoutRef.current)
-      toastRecoveryTimeoutRef.current = null
-    }
-  }, [])
-
   const handleChange = (event) => {
     const { name, value } = event.target
 
@@ -247,125 +231,7 @@ function App() {
     setShowPassword(false)
     setShowConfirmPassword(false)
     setSubmitState(INITIAL_SUBMIT_STATE)
-    toastEventSourceRef.current?.close()
-    toastEventSourceRef.current = null
-    if (toastRecoveryTimeoutRef.current) {
-      window.clearTimeout(toastRecoveryTimeoutRef.current)
-      toastRecoveryTimeoutRef.current = null
-    }
-  }
-
-  const fetchJson = async (path, options = {}) => {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
-      credentials: 'include',
-      ...options,
-      headers: {
-        ...(options.headers || {}),
-      },
-    })
-    const data = await response.json()
-
-    return { response, data }
-  }
-
-  const fetchReadyToast = async () => {
-    const { response, data } = await fetchJson('/me/toast')
-
-    if (response.ok && data.ready && data.toastMessage) {
-      setToastMessage(data.toastMessage)
-      return true
-    }
-
-    return false
-  }
-
-  const clearToastRecoveryTimer = () => {
-    if (toastRecoveryTimeoutRef.current) {
-      window.clearTimeout(toastRecoveryTimeoutRef.current)
-      toastRecoveryTimeoutRef.current = null
-    }
-  }
-
-  const recoverToast = async (attempt = 1) => {
-    let isToastReady = false
-
-    try {
-      isToastReady = await fetchReadyToast()
-    } catch {
-      isToastReady = false
-    }
-
-    if (isToastReady || attempt >= TOAST_RECOVERY_MAX_ATTEMPTS) {
-      clearToastRecoveryTimer()
-      return
-    }
-
-    toastRecoveryTimeoutRef.current = window.setTimeout(() => {
-      void recoverToast(attempt + 1)
-    }, TOAST_RECOVERY_DELAY_MS)
-  }
-
-  const subscribeToToastStream = async () => {
-    toastEventSourceRef.current?.close()
-    clearToastRecoveryTimer()
-
-    let isToastReady = false
-
-    try {
-      isToastReady = await fetchReadyToast()
-    } catch {
-      isToastReady = false
-    }
-
-    if (isToastReady) {
-      return
-    }
-
-    const eventSource = new EventSource(`${API_BASE_URL}/me/toast/stream`, {
-      withCredentials: true,
-    })
-
-    toastEventSourceRef.current = eventSource
-
-    eventSource.addEventListener('toast-ready', (event) => {
-      try {
-        const payload = JSON.parse(event.data)
-
-        if (payload.toastMessage) {
-          setToastMessage(payload.toastMessage)
-          clearToastRecoveryTimer()
-        }
-      } finally {
-        eventSource.close()
-        toastEventSourceRef.current = null
-      }
-    })
-
-    const runRecoveryFetch = () => {
-      eventSource.close()
-      toastEventSourceRef.current = null
-      clearToastRecoveryTimer()
-      toastRecoveryTimeoutRef.current = window.setTimeout(() => {
-        void recoverToast()
-      }, TOAST_RECOVERY_DELAY_MS)
-    }
-
-    eventSource.addEventListener('timeout', () => {
-      void runRecoveryFetch()
-    })
-
-    eventSource.addEventListener('heartbeat', () => {
-      return
-    })
-
-    eventSource.onerror = () => {
-      void runRecoveryFetch()
-    }
-
-    eventSource.addEventListener('error', () => {
-      eventSource.close()
-      toastEventSourceRef.current = null
-    })
+    resetToastStream()
   }
 
   const handleSubmit = async (event) => {
@@ -417,6 +283,12 @@ function App() {
         throw new Error(data.detail || 'Registration failed.')
       }
 
+      if (!data.auth?.accessToken) {
+        throw new Error('Authentication did not return an access token.')
+      }
+
+      setCurrentAccessToken(data.auth.accessToken)
+
       setSubmitState({
         status: 'success',
         message: data.message || currentModeConfig.successMessage,
@@ -429,6 +301,10 @@ function App() {
 
       setFormData((current) => currentModeConfig.resetFormData(current))
     } catch (error) {
+      if (error.message === sessionExpiredMessage) {
+        clearAccessToken()
+      }
+
       setSubmitState({
         status: 'error',
         message: error.message || 'Could not connect to the Python server.',

@@ -50,6 +50,13 @@ describe('App auth flow', () => {
   })
 
   it('switches from login mode to register mode', async () => {
+    fetch.mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        detail: 'No refresh session.',
+      }),
+    })
+
     render(<App />)
 
     expect(screen.getByRole('heading', { name: 'Log in' })).toBeInTheDocument()
@@ -62,6 +69,13 @@ describe('App auth flow', () => {
   })
 
   it('disables register submission when passwords do not match', async () => {
+    fetch.mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        detail: 'No refresh session.',
+      }),
+    })
+
     render(<App />)
 
     fireEvent.click(screen.getByRole('button', { name: 'Register' }))
@@ -84,30 +98,126 @@ describe('App auth flow', () => {
       target: { value: 'different123' },
     })
 
-    const registerButton = screen.getByRole('button', { name: 'Register' })
-
-    expect(registerButton).toBeDisabled()
-    expect(fetch).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Register' })).toBeDisabled()
   })
 
-  it('submits register successfully and shows the toast message', async () => {
+  it('submits register successfully and shows the toast message over SSE', async () => {
     fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          detail: 'No refresh session.',
+        }),
+      })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
           success: true,
           message: 'Welcome aboard, Gal!',
           toastPending: true,
-          user: {
-            email: 'gal@example.com',
+          auth: {
+            accessToken: 'register-token',
+            clientType: 'web',
           },
         }),
       })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          ready: false,
-          toastMessage: null,
+          success: true,
+        }),
+      })
+
+    render(<App />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+
+    fireEvent.change(screen.getByPlaceholderText('Full name'), {
+      target: { value: 'Gal Halifa' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('Phone number'), {
+      target: { value: '0501234567' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('Email'), {
+      target: { value: 'gal@example.com' },
+    })
+
+    const passwordInputs = screen.getAllByPlaceholderText('Password')
+    fireEvent.change(passwordInputs[0], {
+      target: { value: 'secret123' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('Repeat password'), {
+      target: { value: 'secret123' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+
+    expect(await screen.findByText('Welcome aboard, Gal!')).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledTimes(3)
+    })
+
+    expect(fetch).toHaveBeenLastCalledWith(
+      expect.stringContaining('/me/toast/stream-session'),
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer register-token',
+        }),
+      })
+    )
+
+    eventSourceInstances[0].emit('toast-ready', {
+      toastMessage: 'Fresh toast message',
+    })
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Fresh toast message')
+    expect(eventSourceInstances[0].url).toContain('/me/toast/stream')
+    expect(eventSourceInstances[0].options).toEqual({ withCredentials: true })
+  })
+
+  it('refreshes the access token before creating the stream session after a 401', async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          detail: 'No refresh session.',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          message: 'Welcome aboard, Gal!',
+          toastPending: true,
+          auth: {
+            accessToken: 'expired-token',
+            clientType: 'web',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({
+          detail: 'Authentication token has expired.',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          auth: {
+            accessToken: 'refreshed-token',
+            clientType: 'web',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
         }),
       })
 
@@ -136,166 +246,109 @@ describe('App auth flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Register' }))
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledTimes(2)
+      expect(fetch).toHaveBeenCalledTimes(5)
     })
 
-    eventSourceInstances[0].emit('toast-ready', {
-      toastMessage: "I'll be back.",
-    })
-
-    expect(await screen.findByText('Welcome aboard, Gal!')).toBeInTheDocument()
-    expect(await screen.findByRole('status')).toHaveTextContent("I'll be back.")
-    expect(eventSourceInstances[0].closed).toBe(true)
+    expect(fetch).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining('/me/toast/stream-session'),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer expired-token',
+        }),
+      })
+    )
+    expect(fetch).toHaveBeenNthCalledWith(
+      4,
+      expect.stringContaining('/refresh'),
+      expect.objectContaining({
+        method: 'POST',
+      })
+    )
+    expect(fetch).toHaveBeenNthCalledWith(
+      5,
+      expect.stringContaining('/me/toast/stream-session'),
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer refreshed-token',
+        }),
+      })
+    )
   })
 
-  it(
-    'recovers the toast with one fetch when the SSE stream times out',
-    async () => {
-      fetch
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            success: true,
-            message: 'Welcome aboard, Gal!',
-            toastPending: true,
-            user: {
-              email: 'gal@example.com',
-            },
-          }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            ready: false,
-            toastMessage: null,
-          }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            ready: true,
-            toastMessage: 'Recovered toast message',
-          }),
-        })
-
-      render(<App />)
-
-      fireEvent.click(screen.getByRole('button', { name: 'Register' }))
-
-      fireEvent.change(screen.getByPlaceholderText('Full name'), {
-        target: { value: 'Gal Halifa' },
+  it('reopens the SSE stream after a timeout by creating a new stream session', async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          detail: 'No refresh session.',
+        }),
       })
-      fireEvent.change(screen.getByPlaceholderText('Phone number'), {
-        target: { value: '0501234567' },
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          message: 'Welcome aboard, Gal!',
+          toastPending: true,
+          auth: {
+            accessToken: 'register-token',
+            clientType: 'web',
+          },
+        }),
       })
-      fireEvent.change(screen.getByPlaceholderText('Email'), {
-        target: { value: 'gal@example.com' },
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+        }),
       })
 
-      const passwordInputs = screen.getAllByPlaceholderText('Password')
-      fireEvent.change(passwordInputs[0], {
-        target: { value: 'secret123' },
-      })
-      fireEvent.change(screen.getByPlaceholderText('Repeat password'), {
-        target: { value: 'secret123' },
-      })
+    render(<App />)
 
-      fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
 
-      await waitFor(() => {
-        expect(fetch).toHaveBeenCalledTimes(2)
-      })
+    fireEvent.change(screen.getByPlaceholderText('Full name'), {
+      target: { value: 'Gal Halifa' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('Phone number'), {
+      target: { value: '0501234567' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('Email'), {
+      target: { value: 'gal@example.com' },
+    })
 
-      eventSourceInstances[0].emit('timeout', {})
+    const passwordInputs = screen.getAllByPlaceholderText('Password')
+    fireEvent.change(passwordInputs[0], {
+      target: { value: 'secret123' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('Repeat password'), {
+      target: { value: 'secret123' },
+    })
 
-      await waitFor(
-        () => {
-          expect(fetch).toHaveBeenCalledTimes(3)
-        },
-        { timeout: 4000 }
-      )
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }))
 
-      expect(await screen.findByRole('status')).toHaveTextContent('Recovered toast message')
-    },
-    10000
-  )
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledTimes(3)
+      expect(eventSourceInstances).toHaveLength(1)
+    })
 
-  it(
-    'keeps retrying toast recovery until the message becomes ready',
-    async () => {
-      fetch
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            success: true,
-            message: 'Welcome aboard, Gal!',
-            toastPending: true,
-            user: {
-              email: 'gal@example.com',
-            },
-          }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            ready: false,
-            toastMessage: null,
-          }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            ready: false,
-            toastMessage: null,
-          }),
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          json: async () => ({
-            ready: true,
-            toastMessage: 'Toast after retry',
-          }),
-        })
+    eventSourceInstances[0].emit('timeout', {})
 
-      render(<App />)
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledTimes(4)
+      expect(eventSourceInstances).toHaveLength(2)
+    }, { timeout: 3000 })
 
-      fireEvent.click(screen.getByRole('button', { name: 'Register' }))
+    eventSourceInstances[1].emit('toast-ready', {
+      toastMessage: 'Toast after reconnect',
+    })
 
-      fireEvent.change(screen.getByPlaceholderText('Full name'), {
-        target: { value: 'Gal Halifa' },
-      })
-      fireEvent.change(screen.getByPlaceholderText('Phone number'), {
-        target: { value: '0501234567' },
-      })
-      fireEvent.change(screen.getByPlaceholderText('Email'), {
-        target: { value: 'gal@example.com' },
-      })
-
-      const passwordInputs = screen.getAllByPlaceholderText('Password')
-      fireEvent.change(passwordInputs[0], {
-        target: { value: 'secret123' },
-      })
-      fireEvent.change(screen.getByPlaceholderText('Repeat password'), {
-        target: { value: 'secret123' },
-      })
-
-      fireEvent.click(screen.getByRole('button', { name: 'Register' }))
-
-      await waitFor(() => {
-        expect(fetch).toHaveBeenCalledTimes(2)
-      })
-
-      eventSourceInstances[0].emit('timeout', {})
-
-      await waitFor(
-        () => {
-          expect(fetch).toHaveBeenCalledTimes(4)
-        },
-        { timeout: 7000 }
-      )
-
-      expect(await screen.findByRole('status')).toHaveTextContent('Toast after retry')
-    },
-    10000
-  )
+    expect(await screen.findByRole('status')).toHaveTextContent('Toast after reconnect')
+  }, 10000)
 })

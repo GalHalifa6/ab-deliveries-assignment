@@ -16,7 +16,8 @@ import {
   INITIAL_FORM_DATA,
   INITIAL_SUBMIT_STATE,
 } from '../constants/auth'
-import { clearAccessToken, getAccessToken, saveAccessToken } from '../services/authStorage'
+import { authenticatedFetch, persistAuthResponse } from '../services/authClient'
+import { clearAuthTokens } from '../services/authStorage'
 import { colors, spacing, typography } from '../constants/theme'
 
 export function AuthScreen() {
@@ -74,13 +75,8 @@ export function AuthScreen() {
     Alert.alert('A.B Deliveries', message)
   }
 
-  const fetchToastMessage = async (accessToken) => {
-    const response = await fetch(`${API_BASE_URL}/me/toast`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    })
-    const data = await response.json()
+  const fetchToastMessage = async () => {
+    const { response, data } = await authenticatedFetch('/me/toast')
 
     if (response.ok && data.ready && data.toastMessage) {
       showToast(data.toastMessage)
@@ -91,18 +87,12 @@ export function AuthScreen() {
   }
 
   const tryFetchToastMessageWithFallback = async () => {
-    const accessToken = await getAccessToken()
-
-    if (!accessToken) {
-      return
-    }
-
     try {
       await new Promise((resolve) => {
         setTimeout(resolve, 3000)
       })
 
-      if (await fetchToastMessage(accessToken)) {
+      if (await fetchToastMessage()) {
         return
       }
 
@@ -110,7 +100,7 @@ export function AuthScreen() {
         setTimeout(resolve, 5000)
       })
 
-      if (await fetchToastMessage(accessToken)) {
+      if (await fetchToastMessage()) {
         return
       }
 
@@ -118,7 +108,7 @@ export function AuthScreen() {
         setTimeout(resolve, 8000)
       })
 
-      await fetchToastMessage(accessToken)
+      await fetchToastMessage()
     } catch {
       return
     }
@@ -175,10 +165,10 @@ export function AuthScreen() {
         message: data.message || currentModeConfig.successMessage,
       })
 
-      if (data.auth?.accessToken) {
-        await saveAccessToken(data.auth.accessToken)
+      if (data.auth?.accessToken && data.refreshToken) {
+        await persistAuthResponse(data)
       } else if (mode === 'login') {
-        await clearAccessToken()
+        await clearAuthTokens()
       }
 
       if (isRegisterMode) {
@@ -191,6 +181,10 @@ export function AuthScreen() {
 
       setFormData((current) => currentModeConfig.resetFormData(current))
     } catch (error) {
+      if (error.message === 'Your session has expired. Please sign in again.') {
+        await clearAuthTokens()
+      }
+
       setSubmitState({
         status: 'error',
         message: error.message || 'Could not connect to the Python server.',

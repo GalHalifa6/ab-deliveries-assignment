@@ -12,17 +12,25 @@ Environment variables:
 - `MONGODB_URI`
 - `MONGODB_DB_NAME`
 - `USERS_COLLECTION_NAME`
-- `SESSIONS_COLLECTION_NAME`
+- `REFRESH_SESSIONS_COLLECTION_NAME`
 - `NODE_AI_URL`
 - `NODE_AI_TIMEOUT_SECONDS`
 - `NODE_AI_RETRY_COUNT`
 - `ALLOWED_ORIGINS`
-- `AUTH_TOKEN_SECRET`
+- `JWT_ACCESS_TOKEN_SECRET`
+- `JWT_ISSUER`
+- `JWT_AUDIENCE`
 - `AUTH_ACCESS_TOKEN_TTL_SECONDS`
-- `SESSION_COOKIE_NAME`
-- `SESSION_COOKIE_SECURE`
-- `SESSION_COOKIE_SAMESITE`
-- `SESSION_COOKIE_TTL_SECONDS`
+- `AUTH_REFRESH_TOKEN_TTL_SECONDS`
+- `STREAM_TOKEN_SECRET`
+- `STREAM_TOKEN_TTL_SECONDS`
+- `ACCESS_TOKEN_REQUIRE_ACTIVE_SESSION`
+- `REFRESH_COOKIE_NAME`
+- `REFRESH_COOKIE_SECURE`
+- `REFRESH_COOKIE_SAMESITE`
+- `STREAM_COOKIE_NAME`
+- `STREAM_COOKIE_SECURE`
+- `STREAM_COOKIE_SAMESITE`
 
 Use `python-server/.env.example` as the starting point for local or Azure configuration.
 
@@ -51,9 +59,12 @@ What is covered:
 - `GET /health`
 - `POST /register`
 - `POST /login`
+- `POST /refresh`
 - `POST /logout`
+- `POST /logout-all`
 - `GET /me`
 - `GET /me/toast`
+- `POST /me/toast/stream-session`
 - `GET /me/toast/stream`
 - toast message fetch success, retry handling, and the no-fake-fallback behavior
 
@@ -73,16 +84,21 @@ Available endpoints:
 - `GET /health`
 - `POST /register`
 - `POST /login`
+- `POST /refresh`
 - `POST /logout`
+- `POST /logout-all`
 - `GET /me`
 - `GET /me/toast`
+- `POST /me/toast/stream-session`
 - `GET /me/toast/stream`
 
 Behavior notes:
 
 - registration saves the user immediately, then fetches the toast in a background task
-- `web` auth uses an `HttpOnly` session cookie
-- `mobile` auth uses a bearer access token when `X-Client-Type: mobile` is sent
+- the backend uses short-lived JWT access tokens plus long-lived refresh tokens
+- refresh-token sessions are stored server-side in MongoDB and rotated on refresh
+- `web` stores the access token in memory, uses an `HttpOnly` refresh cookie, and uses a short-lived stream cookie for SSE
+- `mobile` stores both access and refresh tokens securely when `X-Client-Type: mobile` is sent
 - private user data is now read through authenticated endpoints instead of email query parameters
 - `web` delivers the toast through an authenticated SSE stream instead of repeated polling
 - `mobile` uses a two-step fallback read of `GET /me/toast` after registration

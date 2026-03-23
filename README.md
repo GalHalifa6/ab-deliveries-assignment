@@ -343,7 +343,9 @@ What it does:
   - `web` tests
   - `mobile` tests
 - `Deploy to Azure` runs automatically only after the `Tests` workflow completes successfully on `main`
-- the deploy workflow builds fresh Docker images, pushes them to Azure Container Registry, updates the three Azure Container Apps, and runs post-deploy health checks
+- the deploy workflow detects which service paths changed and deploys only the affected apps
+- manual workflow dispatch still deploys all three services
+- when no deployable service changed, the workflow exits without rebuilding containers
 - `Secret Scan` runs Gitleaks on every push and pull request to catch committed secrets early
 
 Required GitHub repository secrets for deployment:

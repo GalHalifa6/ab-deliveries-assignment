@@ -102,9 +102,18 @@ The repository now supports a gated GitHub Actions deployment flow:
 4. The deploy workflow:
    - logs into Azure
    - logs into Azure Container Registry
-   - builds and pushes fresh Docker images for `node-ai`, `python-server`, and `web`
-   - updates the three Azure Container Apps
-   - verifies the live health endpoints after deployment
+   - detects which deployable service paths changed
+   - builds and pushes only the affected Docker images
+   - updates only the affected Azure Container Apps
+   - verifies the live health endpoints for the services that were deployed
+   - skips deployment entirely when a push changes only non-deployable files such as documentation
+
+Path behavior:
+
+- changes under `python-server/` deploy only `ab-python-server`
+- changes under `node-ai/` deploy only `ab-node-ai`
+- changes under `web/` deploy only `ab-web`
+- manual workflow dispatch deploys all three services
 
 Workflow files:
 

@@ -32,8 +32,11 @@ What the web app currently does:
 - renders the login and registration UI based on the assignment Figma direction
 - calls the Python API for login and registration
 - shows the immediate success/error state from the backend
-- sends authenticated requests with `credentials: 'include'`
-- receives an `HttpOnly` session cookie for browser auth
+- stores the short-lived access token in memory only
+- sends protected API requests with `Authorization: Bearer <accessToken>`
+- uses `credentials: 'include'` for refresh and stream-cookie requests
+- receives an `HttpOnly` refresh cookie for silent auth recovery
+- requests a short-lived stream cookie before opening SSE
 - opens a single SSE connection to `GET /me/toast/stream` after registration so delayed toast messages can be shown without noisy polling
 
 Production note:

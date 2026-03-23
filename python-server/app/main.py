@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import config
 from app.db import ensure_indexes
 from app.routes.auth_routes import router as auth_router
+from app.routes.chatbot_routes import router as chatbot_router
 from app.routes.health_routes import router as health_router
 
 
@@ -18,6 +19,7 @@ def create_app() -> FastAPI:
     )
     app.include_router(health_router)
     app.include_router(auth_router)
+    app.include_router(chatbot_router)
     return app
 
 

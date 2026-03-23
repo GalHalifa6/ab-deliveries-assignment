@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 
 import main
 from app import config
-from app.services import auth_service, toast_service
+from app.services import auth_service, chatbot_service, toast_service, whatsapp_service
 
 
 class FakeUserRepository:
@@ -88,11 +88,39 @@ class PythonServerApiIntegrationTests(unittest.TestCase):
 
         self.original_auth_user_repository = auth_service.user_repository
         self.original_auth_refresh_session_repository = auth_service.refresh_session_repository
+        self.original_generate_chatbot_reply = chatbot_service.generate_chatbot_reply
         self.original_toast_user_repository = toast_service.user_repository
         self.original_fetch_toast_message = toast_service.fetch_toast_message
+        self.original_handle_incoming_whatsapp_message = whatsapp_service.handle_incoming_whatsapp_message
 
         auth_service.user_repository = self.fake_user_repository
         auth_service.refresh_session_repository = self.fake_refresh_session_repository
+        chatbot_service.generate_chatbot_reply = lambda **kwargs: {
+            "channel": kwargs["channel"],
+            "customer": {
+                "name": kwargs.get("customer_name"),
+                "phone": kwargs["customer_phone"],
+            },
+            "shipment": None,
+            "shipmentCandidates": [],
+            "reply": "שלום, איך אפשר לעזור עם המשלוח?",
+            "intent": "general",
+        }
+        whatsapp_service.handle_incoming_whatsapp_message = lambda **kwargs: {
+            "reply": "שלום, איך אפשר לעזור עם המשלוח?",
+            "twiml": '<?xml version="1.0" encoding="UTF-8"?><Response><Message>שלום, איך אפשר לעזור עם המשלוח?</Message></Response>',
+            "result": {
+                "channel": "whatsapp",
+                "customer": {
+                    "name": kwargs.get("profile_name"),
+                    "phone": kwargs["from_number"],
+                },
+                "shipment": None,
+                "shipmentCandidates": [],
+                "reply": "שלום, איך אפשר לעזור עם המשלוח?",
+                "intent": "general",
+            },
+        }
         toast_service.user_repository = self.fake_user_repository
         toast_service.fetch_toast_message = lambda: "Test toast message"
 
@@ -101,6 +129,8 @@ class PythonServerApiIntegrationTests(unittest.TestCase):
     def tearDown(self):
         auth_service.user_repository = self.original_auth_user_repository
         auth_service.refresh_session_repository = self.original_auth_refresh_session_repository
+        chatbot_service.generate_chatbot_reply = self.original_generate_chatbot_reply
+        whatsapp_service.handle_incoming_whatsapp_message = self.original_handle_incoming_whatsapp_message
         toast_service.user_repository = self.original_toast_user_repository
         toast_service.fetch_toast_message = self.original_fetch_toast_message
 
@@ -438,3 +468,57 @@ class PythonServerApiIntegrationTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(response.json()["detail"], "Authentication is required.")
+
+    def test_chatbot_messages_returns_orchestrated_response(self):
+        response = self.client.post(
+            "/chatbot/messages",
+            json={
+                "channel": "local-test",
+                "customerName": "גל חליפה",
+                "customerPhone": "0501234567",
+                "message": "איפה המשלוח שלי?",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["channel"], "local-test")
+        self.assertEqual(body["customer"]["name"], "גל חליפה")
+        self.assertEqual(body["customer"]["phone"], "0501234567")
+        self.assertEqual(body["reply"], "שלום, איך אפשר לעזור עם המשלוח?")
+        self.assertEqual(body["intent"], "general")
+
+    def test_chatbot_messages_requires_phone_and_message(self):
+        response = self.client.post(
+            "/chatbot/messages",
+            json={
+                "channel": "local-test",
+                "customerName": "גל חליפה",
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)
+
+    def test_whatsapp_webhook_returns_twiml_response(self):
+        response = self.client.post(
+            "/chatbot/webhooks/whatsapp",
+            data={
+                "From": "whatsapp:+972501234567",
+                "Body": "איפה המשלוח שלי?",
+                "ProfileName": "גל חליפה",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("application/xml", response.headers["content-type"])
+        self.assertIn("<Response><Message>שלום, איך אפשר לעזור עם המשלוח?</Message></Response>", response.text)
+
+    def test_whatsapp_webhook_requires_sender_and_body(self):
+        response = self.client.post(
+            "/chatbot/webhooks/whatsapp",
+            data={
+                "ProfileName": "גל חליפה",
+            },
+        )
+
+        self.assertEqual(response.status_code, 422)

@@ -11,3 +11,6 @@ mongoATLAS pasword.txt
 atlas connection string.txt
 chatGPT_secretKey.txt
 registryName.txt
+*.out.log
+*.err.log
+python-server/google-sheets-verify.json

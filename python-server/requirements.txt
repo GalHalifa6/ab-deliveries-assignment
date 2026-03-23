@@ -7,5 +7,5 @@ passlib==1.7.4
 httpx==0.28.1
 certifi==2026.2.25
 PyJWT==2.10.1
-google-api-python-client==2.168.0
+google-api-python-client==2.193.0
 google-auth==2.40.1

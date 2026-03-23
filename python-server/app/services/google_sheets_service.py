@@ -1,3 +1,4 @@
+import base64
 import json
 import logging
 from functools import lru_cache
@@ -13,7 +14,11 @@ def is_google_sheets_logging_enabled() -> bool:
     return bool(
         config.GOOGLE_SHEETS_LOGGING_ENABLED
         and config.GOOGLE_SHEETS_SPREADSHEET_ID
-        and (config.GOOGLE_SERVICE_ACCOUNT_JSON or config.GOOGLE_SERVICE_ACCOUNT_FILE)
+        and (
+            config.GOOGLE_SERVICE_ACCOUNT_JSON
+            or config.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64
+            or config.GOOGLE_SERVICE_ACCOUNT_FILE
+        )
     )
 
 
@@ -27,6 +32,10 @@ def get_sheets_service():
 
     if config.GOOGLE_SERVICE_ACCOUNT_JSON:
         credentials_info = json.loads(config.GOOGLE_SERVICE_ACCOUNT_JSON)
+        credentials = Credentials.from_service_account_info(credentials_info, scopes=[GOOGLE_SHEETS_SCOPE])
+    elif config.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64:
+        decoded_json = base64.b64decode(config.GOOGLE_SERVICE_ACCOUNT_JSON_BASE64).decode("utf-8")
+        credentials_info = json.loads(decoded_json)
         credentials = Credentials.from_service_account_info(credentials_info, scopes=[GOOGLE_SHEETS_SCOPE])
     else:
         credentials = Credentials.from_service_account_file(

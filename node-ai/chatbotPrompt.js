@@ -5,9 +5,20 @@ import { fileURLToPath } from 'node:url'
 const VALID_INTENTS = new Set(['tracking', 'support', 'sales', 'general'])
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
-const PROMPT_PATH = path.resolve(__dirname, '../chatbot/PROMPT.md')
+const PROMPT_PATHS = [
+  path.resolve(__dirname, '../chatbot/PROMPT.md'),
+  path.resolve(__dirname, './PROMPT.md'),
+]
 
-export const readChatbotPrompt = () => fs.readFileSync(PROMPT_PATH, 'utf-8').trim()
+export const readChatbotPrompt = () => {
+  const promptPath = PROMPT_PATHS.find((candidate) => fs.existsSync(candidate))
+
+  if (!promptPath) {
+    throw new Error('Chatbot prompt file was not found.')
+  }
+
+  return fs.readFileSync(promptPath, 'utf-8').trim()
+}
 
 export const buildChatbotInput = (payload) =>
   [

@@ -16,6 +16,14 @@ const INITIAL_SUBMIT_STATE = {
   message: '',
 }
 
+const INITIAL_CHAT_MESSAGES = [
+  {
+    id: 'assistant-intro',
+    role: 'assistant',
+    content: 'Hi, I can help you track shipments and answer delivery questions right here on the website.',
+  },
+]
+
 const WEB_CLIENT_TYPE = 'web'
 
 const AUTH_MODE_CONFIG = {
@@ -201,12 +209,16 @@ function App() {
   const [formData, setFormData] = useState(INITIAL_FORM_DATA)
   const [submitState, setSubmitState] = useState(INITIAL_SUBMIT_STATE)
   const [currentUser, setCurrentUser] = useState(null)
+  const [chatProfile, setChatProfile] = useState({
+    fullName: '',
+    phone: '',
+  })
   const [chatInput, setChatInput] = useState('')
   const [chatState, setChatState] = useState({
     status: 'idle',
     message: '',
   })
-  const [chatMessages, setChatMessages] = useState([])
+  const [chatMessages, setChatMessages] = useState(INITIAL_CHAT_MESSAGES)
   const {
     accessToken,
     clearAccessToken,
@@ -234,16 +246,12 @@ function App() {
   )
   const isSubmitDisabled = isSubmitting || (isRegisterMode ? !isRegisterFormValid : !isLoginFormValid)
   const isChatSubmitting = chatState.status === 'loading'
-  const isChatDisabled = !currentUser?.phone || !chatInput.trim() || isChatSubmitting
+  const isChatProfileReady = Boolean(chatProfile.fullName.trim() && chatProfile.phone.trim())
+  const isChatDisabled = !isChatProfileReady || !chatInput.trim() || isChatSubmitting
 
   useEffect(() => {
     if (!accessToken) {
       setCurrentUser(null)
-      setChatMessages([])
-      setChatState({
-        status: 'idle',
-        message: '',
-      })
       return
     }
 
@@ -262,18 +270,10 @@ function App() {
         }
 
         setCurrentUser(data.user)
-        setChatMessages((current) =>
-          current.length
-            ? current
-            : [
-                {
-                  id: 'assistant-intro',
-                  role: 'assistant',
-                  content:
-                    'Hi, I can help you track shipments and answer delivery questions right here on the website.',
-                },
-              ]
-        )
+        setChatProfile((current) => ({
+          fullName: current.fullName || data.user.fullName || '',
+          phone: current.phone || data.user.phone || '',
+        }))
       } catch {
         if (isActive) {
           setCurrentUser(null)
@@ -287,6 +287,15 @@ function App() {
       isActive = false
     }
   }, [accessToken])
+
+  const handleChatProfileChange = (event) => {
+    const { name, value } = event.target
+
+    setChatProfile((current) => ({
+      ...current,
+      [name]: value,
+    }))
+  }
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -306,11 +315,13 @@ function App() {
   }
 
   const handleChatSubmit = async () => {
-    if (!currentUser?.phone || !chatInput.trim()) {
+    if (!isChatProfileReady || !chatInput.trim()) {
       return
     }
 
     const nextMessage = chatInput.trim()
+    const customerName = chatProfile.fullName.trim()
+    const customerPhone = chatProfile.phone.trim()
 
     setChatMessages((current) => [
       ...current,
@@ -330,8 +341,8 @@ function App() {
       event: 'web_chat_submit_started',
       mode: 'chatbot',
       endpoint: '/chatbot/messages',
-      email: currentUser.email,
-      phone: currentUser.phone,
+      email: currentUser?.email,
+      phone: customerPhone,
     })
 
     try {
@@ -342,8 +353,8 @@ function App() {
         },
         body: JSON.stringify({
           channel: 'web',
-          customerName: currentUser.fullName,
-          customerPhone: currentUser.phone,
+          customerName,
+          customerPhone,
           message: nextMessage,
         }),
       })
@@ -368,8 +379,8 @@ function App() {
         event: 'web_chat_submit_succeeded',
         mode: 'chatbot',
         endpoint: '/chatbot/messages',
-        email: currentUser.email,
-        phone: currentUser.phone,
+        email: currentUser?.email,
+        phone: customerPhone,
         success: true,
       })
     } catch (error) {
@@ -381,8 +392,8 @@ function App() {
         event: 'web_chat_submit_failed',
         mode: 'chatbot',
         endpoint: '/chatbot/messages',
-        email: currentUser.email,
-        phone: currentUser.phone,
+        email: currentUser?.email,
+        phone: customerPhone,
         success: false,
         detail: error.message || 'The delivery assistant is unavailable right now.',
       })
@@ -746,60 +757,83 @@ function App() {
 
               <section className="chatbot-card" aria-label="Delivery assistant">
                 <div className="chatbot-card__header">
-                  <div>
-                    <p className="chatbot-card__eyebrow">New channel</p>
+                  <div className="chatbot-card__header-copy">
+                    <p className="chatbot-card__eyebrow">Website chatbot</p>
                     <h3 className="chatbot-card__title">Delivery assistant</h3>
+                    <p className="chatbot-card__subtitle">
+                      Ask about a shipment, get a quick status update, and keep the conversation logged under channel
+                      <strong> web</strong>.
+                    </p>
                   </div>
                   <span className="chatbot-card__channel">web</span>
                 </div>
 
+                <div className="chatbot-card__profile">
+                  <TextField
+                    ariaLabel="Chat name"
+                    icon={<PersonIcon />}
+                    type="text"
+                    name="fullName"
+                    placeholder="Your name"
+                    value={chatProfile.fullName}
+                    onChange={handleChatProfileChange}
+                    disabled={isChatSubmitting}
+                  />
+                  <TextField
+                    ariaLabel="Chat phone number"
+                    icon={<PhoneIcon />}
+                    type="tel"
+                    name="phone"
+                    placeholder="Contact phone"
+                    value={chatProfile.phone}
+                    onChange={handleChatProfileChange}
+                    disabled={isChatSubmitting}
+                  />
+                </div>
+
                 {currentUser ? (
-                  <>
-                    <p className="chatbot-card__subtitle">
-                      Signed in as {currentUser.fullName}. Messages from this widget are routed through the same
-                      chatbot core as WhatsApp and logged in Google Sheets with channel <strong>web</strong>.
-                    </p>
-
-                    <div className="chatbot-card__messages" role="log" aria-live="polite">
-                      {chatMessages.map((message) => (
-                        <ChatBubble key={message.id} role={message.role}>
-                          {message.content}
-                        </ChatBubble>
-                      ))}
-                    </div>
-
-                    <div className="chatbot-card__composer">
-                      <textarea
-                        className="chatbot-card__input"
-                        name="chatMessage"
-                        placeholder="Ask about a shipment or paste a tracking number like AB1001"
-                        value={chatInput}
-                        onChange={(event) => setChatInput(event.target.value)}
-                        disabled={isChatSubmitting}
-                        rows={2}
-                      />
-                      <button
-                        className="button button--primary chatbot-card__send"
-                        type="button"
-                        onClick={handleChatSubmit}
-                        disabled={isChatDisabled}
-                      >
-                        {isChatSubmitting ? 'Sending...' : 'Send message'}
-                      </button>
-                    </div>
-
-                    {chatState.status !== 'idle' ? (
-                      <p className={`chatbot-card__message chatbot-card__message--${chatState.status}`}>
-                        {chatState.message}
-                      </p>
-                    ) : null}
-                  </>
+                  <p className="chatbot-card__hint">
+                    Using your signed-in details from {currentUser.email}.
+                  </p>
                 ) : (
-                  <p className="chatbot-card__subtitle">
-                    Sign in or register to use the website chatbot. It reuses the same Python orchestrator, Node AI
-                    reply service, shipment lookup, and Google Sheets log as the WhatsApp channel.
+                  <p className="chatbot-card__hint">
+                    No login needed. Just add your name and phone number so the conversation can be tracked properly.
                   </p>
                 )}
+
+                <div className="chatbot-card__messages" role="log" aria-live="polite">
+                  {chatMessages.map((message) => (
+                    <ChatBubble key={message.id} role={message.role}>
+                      {message.content}
+                    </ChatBubble>
+                  ))}
+                </div>
+
+                <div className="chatbot-card__composer">
+                  <textarea
+                    className="chatbot-card__input"
+                    name="chatMessage"
+                    placeholder="Ask about a shipment or paste a tracking number like AB1001"
+                    value={chatInput}
+                    onChange={(event) => setChatInput(event.target.value)}
+                    disabled={isChatSubmitting}
+                    rows={2}
+                  />
+                  <button
+                    className="button button--primary chatbot-card__send"
+                    type="button"
+                    onClick={handleChatSubmit}
+                    disabled={isChatDisabled}
+                  >
+                    {isChatSubmitting ? 'Sending...' : 'Send message'}
+                  </button>
+                </div>
+
+                {chatState.status !== 'idle' ? (
+                  <p className={`chatbot-card__message chatbot-card__message--${chatState.status}`}>
+                    {chatState.message}
+                  </p>
+                ) : null}
               </section>
             </div>
           </form>

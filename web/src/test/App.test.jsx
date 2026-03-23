@@ -423,39 +423,12 @@ describe('App auth flow', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Toast after reconnect')
   }, 10000)
 
-  it('sends web chatbot messages through the shared chatbot endpoint', async () => {
+  it('sends web chatbot messages through the shared chatbot endpoint without requiring login', async () => {
     fetch
       .mockResolvedValueOnce({
         ok: false,
         json: async () => ({
           detail: 'No refresh session.',
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          message: 'Welcome back, Gal!',
-          auth: {
-            accessToken: 'web-chat-token',
-            clientType: 'web',
-          },
-          user: {
-            fullName: 'Gal Halifa',
-            phone: '+972501234567',
-            email: 'gal@example.com',
-          },
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          authenticated: true,
-          user: {
-            fullName: 'Gal Halifa',
-            phone: '+972501234567',
-            email: 'gal@example.com',
-          },
         }),
       })
       .mockResolvedValueOnce({
@@ -469,14 +442,12 @@ describe('App auth flow', () => {
 
     render(<App />)
 
-    fireEvent.change(screen.getByPlaceholderText('Email'), {
-      target: { value: 'gal@example.com' },
+    fireEvent.change(screen.getByPlaceholderText('Your name'), {
+      target: { value: 'Gal Halifa' },
     })
-    fireEvent.change(screen.getByPlaceholderText('Password'), {
-      target: { value: 'secret123' },
+    fireEvent.change(screen.getByPlaceholderText('Contact phone'), {
+      target: { value: '+972501234567' },
     })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Login' }))
 
     expect(
       await screen.findByPlaceholderText('Ask about a shipment or paste a tracking number like AB1001')
@@ -494,7 +465,7 @@ describe('App auth flow', () => {
     expect(await screen.findByText('Your package AB1001 is on the way.')).toBeInTheDocument()
 
     expect(fetch).toHaveBeenNthCalledWith(
-      4,
+      2,
       expect.stringContaining('/chatbot/messages'),
       expect.objectContaining({
         method: 'POST',

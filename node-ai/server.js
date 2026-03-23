@@ -1,6 +1,7 @@
 import http from 'node:http'
 import { fileURLToPath } from 'node:url'
 import OpenAI from 'openai'
+import { buildChatbotInput, parseChatbotReply } from './chatbotPrompt.js'
 
 const HOST = process.env.HOST || '0.0.0.0'
 const PORT = Number(process.env.PORT || 3001)
@@ -39,17 +40,47 @@ export const generateToastMessage = async () => {
   return toastMessage
 }
 
+export const generateChatbotReply = async (payload) => {
+  if (!openAiClient) {
+    throw new Error('OPENAI_API_KEY is not configured for node-ai.')
+  }
+
+  const response = await openAiClient.responses.create({
+    model: OPENAI_MODEL,
+    input: buildChatbotInput(payload),
+  })
+
+  return parseChatbotReply(response.output_text)
+}
+
+const readJsonBody = async (request) => {
+  const chunks = []
+
+  for await (const chunk of request) {
+    chunks.push(chunk)
+  }
+
+  if (!chunks.length) {
+    return {}
+  }
+
+  return JSON.parse(Buffer.concat(chunks).toString('utf-8'))
+}
+
 const sendJson = (response, statusCode, payload) => {
   response.writeHead(statusCode, {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
   })
   response.end(JSON.stringify(payload))
 }
 
-export const createServer = ({ generateToastMessageFn = generateToastMessage } = {}) =>
+export const createServer = ({
+  generateToastMessageFn = generateToastMessage,
+  generateChatbotReplyFn = generateChatbotReply,
+} = {}) =>
   http.createServer(async (request, response) => {
     if (request.method === 'OPTIONS') {
       sendJson(response, 200, { ok: true })
@@ -79,6 +110,36 @@ export const createServer = ({ generateToastMessageFn = generateToastMessage } =
         sendJson(response, 503, {
           success: false,
           detail: 'Toast generation is currently unavailable.',
+        })
+      }
+
+      return
+    }
+
+    if (request.method === 'POST' && request.url === '/chatbot/reply') {
+      try {
+        const payload = await readJsonBody(request)
+        const userMessage = typeof payload.userMessage === 'string' ? payload.userMessage.trim() : ''
+
+        if (!userMessage) {
+          sendJson(response, 400, {
+            success: false,
+            detail: 'userMessage is required.',
+          })
+          return
+        }
+
+        const chatbotReply = await generateChatbotReplyFn(payload)
+
+        sendJson(response, 200, {
+          success: true,
+          ...chatbotReply,
+        })
+      } catch (error) {
+        console.error('OpenAI chatbot generation failed:', error)
+        sendJson(response, 503, {
+          success: false,
+          detail: 'Chatbot reply generation is currently unavailable.',
         })
       }
 

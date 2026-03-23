@@ -81,7 +81,7 @@ The implementation adapts that design language to support both registration and 
 8. `web` can silently restore the access token with the refresh cookie and obtains a short-lived stream cookie before opening SSE.
 9. `web` opens a single SSE connection to `GET /me/toast/stream`.
 10. `mobile` waits 3 seconds, checks `GET /me/toast`, then waits 5 more seconds and checks once more.
-10. The frontend displays the toast when it becomes available.
+11. The frontend displays the toast when it becomes available.
 
 ### Login
 

@@ -1,0 +1,80 @@
+[
+  {
+    "trackingNumber": "AB100001",
+    "customerName": "Gal Halifa",
+    "phone": "+972501234567",
+    "status": "out_for_delivery",
+    "statusLabel": "בדרך למסירה",
+    "pickupAddress": "Tel Aviv",
+    "deliveryAddress": "Haifa",
+    "destinationCity": "Haifa",
+    "estimatedDelivery": "2026-03-23T15:00:00Z",
+    "createdAt": 1774000000,
+    "updatedAt": 1774003600
+  },
+  {
+    "trackingNumber": "AB100002",
+    "customerName": "Maya Cohen",
+    "phone": "+972527654321",
+    "status": "delivered",
+    "statusLabel": "נמסר",
+    "pickupAddress": "Jerusalem",
+    "deliveryAddress": "Rishon LeZion",
+    "destinationCity": "Rishon LeZion",
+    "estimatedDelivery": "2026-03-21T12:30:00Z",
+    "createdAt": 1773910000,
+    "updatedAt": 1773996400
+  },
+  {
+    "trackingNumber": "AB100003",
+    "customerName": "Dana Levi",
+    "phone": "+972544441111",
+    "status": "delayed",
+    "statusLabel": "מתעכב",
+    "pickupAddress": "Beer Sheva",
+    "deliveryAddress": "Ashdod",
+    "destinationCity": "Ashdod",
+    "estimatedDelivery": "2026-03-24T17:00:00Z",
+    "createdAt": 1773990000,
+    "updatedAt": 1774076400
+  },
+  {
+    "trackingNumber": "AB100004",
+    "customerName": "Omer Mizrahi",
+    "phone": "+972509998877",
+    "status": "in_transit",
+    "statusLabel": "במעבר",
+    "pickupAddress": "Netanya",
+    "deliveryAddress": "Eilat",
+    "destinationCity": "Eilat",
+    "estimatedDelivery": "2026-03-25T19:30:00Z",
+    "createdAt": 1773980000,
+    "updatedAt": 1774066400
+  },
+  {
+    "trackingNumber": "AB100005",
+    "customerName": "Dor Bar",
+    "phone": "+972535551234",
+    "status": "created",
+    "statusLabel": "נוצרה הזמנה",
+    "pickupAddress": "Holon",
+    "deliveryAddress": "Petah Tikva",
+    "destinationCity": "Petah Tikva",
+    "estimatedDelivery": "2026-03-26T10:00:00Z",
+    "createdAt": 1774070000,
+    "updatedAt": 1774070000
+  },
+  {
+    "trackingNumber": "AB100006",
+    "customerName": "Gal Halifa",
+    "phone": "+972501234567",
+    "status": "in_transit",
+    "statusLabel": "במעבר",
+    "pickupAddress": "Haifa",
+    "deliveryAddress": "Tel Aviv",
+    "destinationCity": "Tel Aviv",
+    "estimatedDelivery": "2026-03-24T13:00:00Z",
+    "createdAt": 1774060000,
+    "updatedAt": 1774067200
+  }
+]

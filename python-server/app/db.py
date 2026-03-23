@@ -21,6 +21,7 @@ client = MongoClient(config.MONGODB_URI, **mongodb_client_options)
 atexit.register(client.close)
 database = client[config.MONGODB_DB_NAME]
 users_collection = database[config.USERS_COLLECTION_NAME]
+shipments_collection = database[config.SHIPMENTS_COLLECTION_NAME]
 refresh_sessions_collection = database[config.REFRESH_SESSIONS_COLLECTION_NAME]
 
 
@@ -28,6 +29,11 @@ def ensure_indexes():
     try:
         if hasattr(users_collection, "create_index"):
             users_collection.create_index("email", unique=True)
+
+        if hasattr(shipments_collection, "create_index"):
+            shipments_collection.create_index("trackingNumber", unique=True)
+            shipments_collection.create_index("phone")
+            shipments_collection.create_index("customerName")
 
         if hasattr(refresh_sessions_collection, "create_index"):
             refresh_sessions_collection.create_index("sessionId", unique=True)

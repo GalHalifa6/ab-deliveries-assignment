@@ -23,8 +23,9 @@ Completed:
 - `node-ai/` scaffolded with a Node.js toast-message service
 - Python registration flow connected to the Node.js toast service
 - Toast generation is stored asynchronously after successful registration
-- Web auth is now secured with an `HttpOnly` cookie session
-- Mobile auth now uses a bearer access token returned by the Python API
+- JWT access-token auth with refresh-session control is implemented end to end
+- Web auth now uses an in-memory access token, `HttpOnly` refresh cookie, and short-lived SSE stream cookie
+- Mobile auth now uses access + refresh tokens stored in Expo Secure Store
 - Private user data now loads through authenticated endpoints instead of email query params
 - Web toast delivery now uses Server-Sent Events instead of repeated polling
 - Mobile toast delivery now uses a low-noise fallback check instead of aggressive polling
@@ -47,7 +48,7 @@ Still pending:
 - Prompt documentation for the chatbot assignment section
 - Platform integration for the chatbot assignment section
 - MongoDB credential rotation after deployment testing
-- Optional refresh-token support if the mobile app later needs longer-lived sessions
+- Hebrew AI chatbot and conversation logging
 
 ## Assignment Coverage
 
@@ -74,19 +75,26 @@ The project now uses a split auth approach that matches real-world client behavi
 
 - `web/`
   - logs in through `POST /login` or `POST /register`
-  - receives an `HttpOnly` session cookie from the Python API
-  - sends authenticated requests with `credentials: 'include'`
+  - receives a short-lived access token in the response body
+  - stores the access token in memory only
+  - receives a long-lived refresh token in an `HttpOnly` cookie
+  - sends authenticated API requests with `Authorization: Bearer <accessToken>`
+  - uses `credentials: 'include'` for refresh and SSE stream-cookie setup
 - `mobile/`
   - logs in through the same endpoints with `X-Client-Type: mobile`
-  - receives a short-lived bearer access token
-  - stores that token in Expo Secure Store and sends it in the `Authorization` header
+  - receives a short-lived bearer access token and a long-lived refresh token
+  - stores both tokens in Expo Secure Store
+  - sends the access token in the `Authorization` header and refreshes when needed
 
 Protected API endpoints:
 
 - `GET /me`
 - `GET /me/toast`
+- `POST /refresh`
 - `GET /me/toast/stream`
 - `POST /logout`
+- `POST /logout-all`
+- `POST /me/toast/stream-session`
 
 Important change:
 
@@ -99,14 +107,16 @@ Important change:
 1. User submits the registration or login form from web or mobile.
 2. The frontend sends the request to the Python server.
 3. The Python server validates the data and stores or verifies the user in MongoDB.
-4. For web, the Python server creates a server-side session and sets an `HttpOnly` cookie.
-5. For mobile, the Python server returns a bearer access token.
-6. After successful registration, the Python server requests a toast message from the Node.js AI service in the background.
-7. The Node.js AI service requests a real welcome message from OpenAI.
-8. If toast generation fails, the user remains saved and `toastMessage` stays empty instead of storing a fake fallback string.
-9. On web, the frontend opens `GET /me/toast/stream` and waits for the backend to push the toast event.
-10. On mobile, the app performs a minimal fallback check against `GET /me/toast` after 3 seconds and again 5 seconds later.
-11. The frontend displays the toast message when it becomes available.
+4. The Python server creates a refresh session in MongoDB for that login.
+5. For web, the Python server returns a short-lived access token and sets an `HttpOnly` refresh cookie.
+6. For mobile, the Python server returns a short-lived access token and a refresh token.
+7. After successful registration, the Python server requests a toast message from the Node.js AI service in the background.
+8. The Node.js AI service requests a real welcome message from OpenAI.
+9. If toast generation fails, the user remains saved and `toastMessage` stays empty instead of storing a fake fallback string.
+10. On web, the frontend silently refreshes access when needed and requests a short-lived stream cookie before opening SSE.
+11. On web, the frontend opens `GET /me/toast/stream` and waits for the backend to push the toast event.
+12. On mobile, the app performs a minimal fallback check against `GET /me/toast` after 3 seconds and again 5 seconds later.
+13. The frontend displays the toast message when it becomes available.
 
 ## Design Note
 
@@ -133,7 +143,7 @@ Use those files to create local `.env` files before deployment.
 
 Additional local setup notes:
 
-- `mobile/` now uses `expo-secure-store` for access-token storage
+- `mobile/` now uses `expo-secure-store` for access-token and refresh-token storage
 - after pulling the latest code, run `npm install` inside `mobile/` before starting Expo
 
 ## Azure Deployment
@@ -152,7 +162,7 @@ Deployment notes:
 - Azure Container Apps host `web`, `python-server`, and `node-ai`
 - MongoDB Atlas remains the external database
 - Python CORS allows the deployed web origin with credentials enabled
-- Web session cookies can work on Azure because the browser and API stay on the Azure Container Apps domain family
+- Web refresh and stream cookies are enabled over HTTPS in Azure
 - `node-ai` calls OpenAI using the `OPENAI_API_KEY` configured in Azure
 - `OPENAI_MODEL` is currently set to `gpt-5-mini`
 
@@ -213,6 +223,13 @@ cd web
 npm test
 ```
 
+Run mobile auth tests:
+
+```bash
+cd mobile
+npm test
+```
+
 Run all test suites from the repository root in PowerShell:
 
 ```powershell
@@ -231,8 +248,8 @@ Current automated coverage:
 
 - `python-server/`
   - health endpoint integration test
-  - register/login tests for web-session and mobile-token clients
-  - protected endpoint tests for `/me`, `/me/toast`, and `/logout`
+  - register/login/refresh tests for web and mobile clients
+  - protected endpoint tests for `/me`, `/me/toast`, `/logout`, `/logout-all`, and stream-session setup
   - toast-fetch unit tests, including the no-fake-fallback behavior
 - `node-ai/`
   - health endpoint integration test
@@ -243,6 +260,10 @@ Current automated coverage:
   - register validation UI test
   - successful authenticated register + toast SSE UI test
   - toast recovery tests for delayed backend generation
+- `mobile/`
+  - secure token persistence tests
+  - refresh-on-401 auth client tests
+  - rotated refresh-token persistence tests
 
 ## CI/CD
 
@@ -265,8 +286,8 @@ The project is prepared for deployment-oriented configuration:
 - local `.env` files stay private and are gitignored
 - `.env.example` files document the required configuration
 - backend services expose `/health`
-- browser auth uses an `HttpOnly` cookie instead of exposing a session token to JavaScript
-- mobile auth uses a bearer token stored with Expo Secure Store
+- browser auth uses an in-memory access token plus `HttpOnly` refresh and stream cookies
+- mobile auth uses access and refresh tokens stored with Expo Secure Store
 - Docker support is available for the deployable services
 - local and CI test flows are in place before Azure deployment
 
@@ -275,8 +296,8 @@ The project is prepared for deployment-oriented configuration:
 The next step is to continue hardening and polishing the product:
 
 1. Finish the remaining mobile visual polish
-2. Implement the Hebrew AI chatbot on a supported platform
-3. Add conversation logging for the chatbot to Google Sheets, Excel, or a similar store
-4. Document the exact prompt used for the chatbot
+2. Configure the WhatsApp chatbot live integration in Twilio and Azure
+3. Enable Google Sheets logging with production credentials
+4. Run a live end-to-end chatbot verification against the deployed stack
 5. Rotate the MongoDB Atlas credentials used during deployment testing
 6. Add a production-grade password reset flow

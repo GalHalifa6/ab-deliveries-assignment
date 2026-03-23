@@ -258,6 +258,7 @@ export function useAuthToastSession() {
   }
 
   return {
+    accessToken,
     clearAccessToken,
     fetchJson,
     resetToastStream,

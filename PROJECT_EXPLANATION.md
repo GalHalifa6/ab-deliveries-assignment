@@ -25,7 +25,7 @@ The project implements the A.B Deliveries assignment with two main parts:
 
 2. The extended assignment
    - a friendly AI customer-service and sales chatbot
-   - WhatsApp as the customer channel
+   - WhatsApp and web as customer channels
    - package-status support using real shipment data from MongoDB
    - conversation logging to Google Sheets
    - prompt documentation in the repository
@@ -166,6 +166,8 @@ The web client is responsible for:
 - storing the access token in memory only
 - relying on an `HttpOnly` refresh cookie for session continuation
 - opening an authenticated SSE stream to receive the toast message after registration
+- rendering an authenticated website chatbot widget
+- forwarding website chatbot messages into the shared Python chatbot adapter with `channel: "web"`
 - sending lightweight operational telemetry events to the backend
 
 Important files:
@@ -485,6 +487,7 @@ The chatbot was designed as a channel-agnostic core with adapters.
 Current channel:
 
 - WhatsApp through Twilio Sandbox
+- authenticated web chat through the React web client
 
 Future possible channels:
 
@@ -538,11 +541,12 @@ The reusable core stays the same:
 
 ## 11. Chatbot Data Flow
 
-The WhatsApp chatbot flow works like this:
+The current chatbot flow works like this:
 
-1. The customer sends a WhatsApp message.
-2. Twilio forwards the webhook request to:
-   - `POST /chatbot/webhooks/whatsapp`
+1. The customer sends a message from either WhatsApp or the authenticated web chat widget.
+2. The channel adapter sends the request to Python:
+   - WhatsApp: `POST /chatbot/webhooks/whatsapp`
+   - Web: `POST /chatbot/messages`
 3. Python normalizes the inbound channel payload.
 4. Python identifies the user by:
    - sender phone
@@ -554,9 +558,11 @@ The WhatsApp chatbot flow works like this:
 9. `node-ai` returns JSON:
    - `reply`
    - `intent`
-10. Python converts the reply into TwiML for Twilio.
-11. Python writes the interaction to Google Sheets.
-12. Twilio delivers the reply back to the WhatsApp user.
+10. Python formats the reply for the channel:
+   - TwiML for Twilio
+   - JSON for the web client
+11. Python writes the interaction to Google Sheets, including the channel value such as `whatsapp` or `web`.
+12. The calling channel displays the reply to the customer.
 
 ## 12. Chatbot Prompt Behavior
 

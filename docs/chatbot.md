@@ -24,6 +24,7 @@ The goal is not to build a full logistics platform. The goal is to build a clean
 The repository already includes a working end-to-end chatbot flow:
 
 - Twilio WhatsApp Sandbox is the first live channel adapter
+- the authenticated React web app is the second live channel adapter
 - `python-server/` exposes:
   - `POST /chatbot/messages`
   - `POST /chatbot/webhooks/whatsapp`
@@ -171,6 +172,21 @@ WhatsApp will send inbound customer messages to a Python webhook endpoint.
 
 In the updated design, WhatsApp is only the first channel adapter, not the full chatbot core.
 
+### 1.1 Web Channel
+
+The web app now uses the generic Python adapter endpoint:
+
+- `POST /chatbot/messages`
+
+The authenticated React client sends:
+
+- `channel: "web"`
+- the logged-in user's full name
+- the logged-in user's phone number
+- the user message text
+
+This means the website chat widget reuses the same orchestrator, shipment lookup, AI service, and Google Sheets log as WhatsApp.
+
 ### 2. Python Backend
 
 This should become both:
@@ -252,19 +268,20 @@ The Python backend should append rows to a sheet after each inbound and outbound
 
 ## End-to-End Webhook Flow
 
-This is the recommended runtime flow for the first channel adapter, WhatsApp.
+This is the recommended runtime flow for the current live channel adapters: WhatsApp and web.
 
 ### Inbound Flow
 
-1. Customer sends WhatsApp message.
-2. Twilio sends webhook request to Python endpoint, for example:
-   - `POST /chatbot/webhooks/whatsapp`
-3. The WhatsApp adapter extracts:
+1. The customer sends a message from either WhatsApp or the authenticated website chat widget.
+2. The channel adapter sends the request to Python:
+   - WhatsApp: `POST /chatbot/webhooks/whatsapp`
+   - Web: `POST /chatbot/messages`
+3. The adapter extracts or forwards:
    - sender phone number
    - message text
-   - timestamp
-   - WhatsApp message id if available
-4. The adapter maps the Twilio payload into the shared internal format.
+   - timestamp if available
+   - provider message id if available
+4. The adapter maps the request into the shared internal format.
 5. The chatbot orchestrator tries to identify the customer:
    - first by phone number
    - if needed by tracking number extracted from the message
@@ -275,7 +292,7 @@ This is the recommended runtime flow for the first channel adapter, WhatsApp.
    - shipment status data
    - user message
    - business rules
-8. `node-ai` generates a Hebrew reply using OpenAI.
+8. `node-ai` generates a reply in the same language used by the customer.
 9. The chatbot orchestrator logs:
    - customer name
    - phone number
@@ -284,7 +301,9 @@ This is the recommended runtime flow for the first channel adapter, WhatsApp.
    - timestamp
    - conversation id
    - shipment/tracking reference if available
-10. The WhatsApp adapter formats the response back to Twilio so the customer receives the answer in WhatsApp.
+10. The adapter formats the response for the calling channel:
+   - WhatsApp returns TwiML to Twilio
+   - web returns JSON to the React client
 
 ### Outbound Behavior
 

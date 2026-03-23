@@ -497,7 +497,7 @@ class PythonServerApiIntegrationTests(unittest.TestCase):
                 "channel": "local-test",
                 "customerName": "Gal Halifa",
                 "customerPhone": "0501234567",
-                "message": "Where is AB100001?",
+                "message": "Where is AB1001?",
             },
         )
 

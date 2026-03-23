@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import illustrationImage from './assets/71b1ce93ba00a27b8ef291cb449e0a6ea47d2ba9.png'
 import { useAuthToastSession } from './hooks/useAuthToastSession'
 import { sendClientTelemetry } from './services/clientTelemetry'
@@ -186,13 +186,29 @@ function SocialAuthButton({ label, disabled, children }) {
   )
 }
 
+function ChatBubble({ role, children }) {
+  return (
+    <div className={`chatbot-card__bubble chatbot-card__bubble--${role}`}>
+      {children}
+    </div>
+  )
+}
+
 function App() {
   const [mode, setMode] = useState('login')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [formData, setFormData] = useState(INITIAL_FORM_DATA)
   const [submitState, setSubmitState] = useState(INITIAL_SUBMIT_STATE)
+  const [currentUser, setCurrentUser] = useState(null)
+  const [chatInput, setChatInput] = useState('')
+  const [chatState, setChatState] = useState({
+    status: 'idle',
+    message: '',
+  })
+  const [chatMessages, setChatMessages] = useState([])
   const {
+    accessToken,
     clearAccessToken,
     fetchJson,
     resetToastStream,
@@ -217,6 +233,60 @@ function App() {
       formData.password === formData.confirmPassword
   )
   const isSubmitDisabled = isSubmitting || (isRegisterMode ? !isRegisterFormValid : !isLoginFormValid)
+  const isChatSubmitting = chatState.status === 'loading'
+  const isChatDisabled = !currentUser?.phone || !chatInput.trim() || isChatSubmitting
+
+  useEffect(() => {
+    if (!accessToken) {
+      setCurrentUser(null)
+      setChatMessages([])
+      setChatState({
+        status: 'idle',
+        message: '',
+      })
+      return
+    }
+
+    let isActive = true
+
+    const loadCurrentUser = async () => {
+      try {
+        const { response, data } = await fetchJson('/me', {}, { requiresAuth: true })
+
+        if (!response.ok || !data.user) {
+          throw new Error(data.detail || 'Could not load the signed-in user.')
+        }
+
+        if (!isActive) {
+          return
+        }
+
+        setCurrentUser(data.user)
+        setChatMessages((current) =>
+          current.length
+            ? current
+            : [
+                {
+                  id: 'assistant-intro',
+                  role: 'assistant',
+                  content:
+                    'Hi, I can help you track shipments and answer delivery questions right here on the website.',
+                },
+              ]
+        )
+      } catch {
+        if (isActive) {
+          setCurrentUser(null)
+        }
+      }
+    }
+
+    void loadCurrentUser()
+
+    return () => {
+      isActive = false
+    }
+  }, [accessToken])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -233,6 +303,90 @@ function App() {
     setShowConfirmPassword(false)
     setSubmitState(INITIAL_SUBMIT_STATE)
     resetToastStream()
+  }
+
+  const handleChatSubmit = async () => {
+    if (!currentUser?.phone || !chatInput.trim()) {
+      return
+    }
+
+    const nextMessage = chatInput.trim()
+
+    setChatMessages((current) => [
+      ...current,
+      {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: nextMessage,
+      },
+    ])
+    setChatInput('')
+    setChatState({
+      status: 'loading',
+      message: 'Sending your message...',
+    })
+
+    sendClientTelemetry({
+      event: 'web_chat_submit_started',
+      mode: 'chatbot',
+      endpoint: '/chatbot/messages',
+      email: currentUser.email,
+      phone: currentUser.phone,
+    })
+
+    try {
+      const { response, data } = await fetchJson('/chatbot/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          channel: 'web',
+          customerName: currentUser.fullName,
+          customerPhone: currentUser.phone,
+          message: nextMessage,
+        }),
+      })
+
+      if (!response.ok || !data.reply) {
+        throw new Error(data.detail || 'The delivery assistant is unavailable right now.')
+      }
+
+      setChatMessages((current) => [
+        ...current,
+        {
+          id: `assistant-${Date.now()}`,
+          role: 'assistant',
+          content: data.reply,
+        },
+      ])
+      setChatState({
+        status: 'success',
+        message: 'Saved under the web chatbot channel.',
+      })
+      sendClientTelemetry({
+        event: 'web_chat_submit_succeeded',
+        mode: 'chatbot',
+        endpoint: '/chatbot/messages',
+        email: currentUser.email,
+        phone: currentUser.phone,
+        success: true,
+      })
+    } catch (error) {
+      setChatState({
+        status: 'error',
+        message: error.message || 'The delivery assistant is unavailable right now.',
+      })
+      sendClientTelemetry({
+        event: 'web_chat_submit_failed',
+        mode: 'chatbot',
+        endpoint: '/chatbot/messages',
+        email: currentUser.email,
+        phone: currentUser.phone,
+        success: false,
+        detail: error.message || 'The delivery assistant is unavailable right now.',
+      })
+    }
   }
 
   const handleSubmit = async (event) => {
@@ -589,6 +743,64 @@ function App() {
                   </>
                 )}
               </div>
+
+              <section className="chatbot-card" aria-label="Delivery assistant">
+                <div className="chatbot-card__header">
+                  <div>
+                    <p className="chatbot-card__eyebrow">New channel</p>
+                    <h3 className="chatbot-card__title">Delivery assistant</h3>
+                  </div>
+                  <span className="chatbot-card__channel">web</span>
+                </div>
+
+                {currentUser ? (
+                  <>
+                    <p className="chatbot-card__subtitle">
+                      Signed in as {currentUser.fullName}. Messages from this widget are routed through the same
+                      chatbot core as WhatsApp and logged in Google Sheets with channel <strong>web</strong>.
+                    </p>
+
+                    <div className="chatbot-card__messages" role="log" aria-live="polite">
+                      {chatMessages.map((message) => (
+                        <ChatBubble key={message.id} role={message.role}>
+                          {message.content}
+                        </ChatBubble>
+                      ))}
+                    </div>
+
+                    <div className="chatbot-card__composer">
+                      <textarea
+                        className="chatbot-card__input"
+                        name="chatMessage"
+                        placeholder="Ask about a shipment or paste a tracking number like AB1001"
+                        value={chatInput}
+                        onChange={(event) => setChatInput(event.target.value)}
+                        disabled={isChatSubmitting}
+                        rows={3}
+                      />
+                      <button
+                        className="button button--primary chatbot-card__send"
+                        type="button"
+                        onClick={handleChatSubmit}
+                        disabled={isChatDisabled}
+                      >
+                        {isChatSubmitting ? 'Sending...' : 'Send message'}
+                      </button>
+                    </div>
+
+                    {chatState.status !== 'idle' ? (
+                      <p className={`chatbot-card__message chatbot-card__message--${chatState.status}`}>
+                        {chatState.message}
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="chatbot-card__subtitle">
+                    Sign in or register to use the website chatbot. It reuses the same Python orchestrator, Node AI
+                    reply service, shipment lookup, and Google Sheets log as the WhatsApp channel.
+                  </p>
+                )}
+              </section>
             </div>
           </form>
         </div>

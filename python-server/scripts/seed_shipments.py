@@ -37,6 +37,17 @@ def main() -> int:
     shipments = json.loads(seed_path.read_text(encoding="utf-8"))
     ensure_indexes()
 
+    seed_tracking_numbers = {shipment["trackingNumber"] for shipment in shipments if shipment.get("trackingNumber")}
+    seed_phones = {shipment["phone"] for shipment in shipments if shipment.get("phone")}
+
+    if seed_phones:
+        shipments_collection.delete_many(
+            {
+                "phone": {"$in": list(seed_phones)},
+                "trackingNumber": {"$nin": list(seed_tracking_numbers)},
+            }
+        )
+
     inserted_or_updated = 0
     for shipment in shipments:
         tracking_number = shipment.get("trackingNumber")

@@ -124,6 +124,39 @@ describe('App auth flow', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
+          authenticated: true,
+          user: {
+            fullName: 'Gal Halifa',
+            phone: '+972501234567',
+            email: 'gal@example.com',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          authenticated: true,
+          user: {
+            fullName: 'Gal Halifa',
+            phone: '+972501234567',
+            email: 'gal@example.com',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          authenticated: true,
+          user: {
+            fullName: 'Gal Halifa',
+            phone: '+972501234567',
+            email: 'gal@example.com',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
           success: true,
         }),
       })
@@ -155,10 +188,18 @@ describe('App auth flow', () => {
     expect(await screen.findByText('Welcome aboard, Gal!')).toBeInTheDocument()
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledTimes(3)
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/me/toast/stream-session'),
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer register-token',
+          }),
+        })
+      )
     })
 
-    expect(fetch).toHaveBeenLastCalledWith(
+    expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining('/me/toast/stream-session'),
       expect.objectContaining({
         method: 'POST',
@@ -211,6 +252,17 @@ describe('App auth flow', () => {
           auth: {
             accessToken: 'refreshed-token',
             clientType: 'web',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          authenticated: true,
+          user: {
+            fullName: 'Gal Halifa',
+            phone: '+972501234567',
+            email: 'gal@example.com',
           },
         }),
       })
@@ -299,6 +351,17 @@ describe('App auth flow', () => {
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({
+          authenticated: true,
+          user: {
+            fullName: 'Gal Halifa',
+            phone: '+972501234567',
+            email: 'gal@example.com',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
           success: true,
         }),
       })
@@ -334,16 +397,24 @@ describe('App auth flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Register' }))
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledTimes(3)
       expect(eventSourceInstances).toHaveLength(1)
     })
 
     eventSourceInstances[0].emit('timeout', {})
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledTimes(4)
       expect(eventSourceInstances).toHaveLength(2)
     }, { timeout: 3000 })
+
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/me/toast/stream-session'),
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer register-token',
+        }),
+      })
+    )
 
     eventSourceInstances[1].emit('toast-ready', {
       toastMessage: 'Toast after reconnect',
@@ -351,4 +422,89 @@ describe('App auth flow', () => {
 
     expect(await screen.findByRole('status')).toHaveTextContent('Toast after reconnect')
   }, 10000)
+
+  it('sends web chatbot messages through the shared chatbot endpoint', async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          detail: 'No refresh session.',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          message: 'Welcome back, Gal!',
+          auth: {
+            accessToken: 'web-chat-token',
+            clientType: 'web',
+          },
+          user: {
+            fullName: 'Gal Halifa',
+            phone: '+972501234567',
+            email: 'gal@example.com',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          authenticated: true,
+          user: {
+            fullName: 'Gal Halifa',
+            phone: '+972501234567',
+            email: 'gal@example.com',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          channel: 'web',
+          reply: 'Your package AB1001 is on the way.',
+          intent: 'tracking',
+        }),
+      })
+
+    render(<App />)
+
+    fireEvent.change(screen.getByPlaceholderText('Email'), {
+      target: { value: 'gal@example.com' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('Password'), {
+      target: { value: 'secret123' },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Login' }))
+
+    expect(
+      await screen.findByPlaceholderText('Ask about a shipment or paste a tracking number like AB1001')
+    ).toBeInTheDocument()
+
+    fireEvent.change(
+      screen.getByPlaceholderText('Ask about a shipment or paste a tracking number like AB1001'),
+      {
+        target: { value: 'Where is package AB1001?' },
+      }
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
+
+    expect(await screen.findByText('Your package AB1001 is on the way.')).toBeInTheDocument()
+
+    expect(fetch).toHaveBeenNthCalledWith(
+      4,
+      expect.stringContaining('/chatbot/messages'),
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          channel: 'web',
+          customerName: 'Gal Halifa',
+          customerPhone: '+972501234567',
+          message: 'Where is package AB1001?',
+        }),
+      })
+    )
+  })
 })

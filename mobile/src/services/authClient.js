@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../constants/auth'
+import { sendClientTelemetry } from './clientTelemetry'
 import {
   clearAuthTokens,
   getAccessToken,
@@ -20,9 +21,20 @@ export async function refreshMobileAccessToken() {
   const refreshToken = await getRefreshToken()
 
   if (!refreshToken) {
+    sendClientTelemetry({
+      event: 'auth_refresh_failed',
+      endpoint: '/refresh',
+      success: false,
+      detail: 'missing_refresh_token',
+    })
     await clearAuthTokens()
     throw new Error('Your session has expired. Please sign in again.')
   }
+
+  sendClientTelemetry({
+    event: 'auth_refresh_started',
+    endpoint: '/refresh',
+  })
 
   const response = await fetch(`${API_BASE_URL}/refresh`, {
     method: 'POST',
@@ -35,6 +47,12 @@ export async function refreshMobileAccessToken() {
   const data = await parseJsonResponse(response)
 
   if (!response.ok || !data.auth?.accessToken || !data.refreshToken) {
+    sendClientTelemetry({
+      event: 'auth_refresh_failed',
+      endpoint: '/refresh',
+      success: false,
+      detail: data.detail || 'Your session has expired. Please sign in again.',
+    })
     await clearAuthTokens()
     throw new Error(data.detail || 'Your session has expired. Please sign in again.')
   }
@@ -42,6 +60,12 @@ export async function refreshMobileAccessToken() {
   await saveAuthTokens({
     accessToken: data.auth.accessToken,
     refreshToken: data.refreshToken,
+  })
+
+  sendClientTelemetry({
+    event: 'auth_refresh_succeeded',
+    endpoint: '/refresh',
+    success: true,
   })
 
   return data.auth.accessToken

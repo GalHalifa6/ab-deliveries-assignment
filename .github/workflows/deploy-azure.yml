@@ -1,0 +1,124 @@
+name: Deploy to Azure
+
+on:
+  workflow_run:
+    workflows: ["Tests"]
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  RESOURCE_GROUP: ab-deliveries-rg
+  ACR_NAME: abdeliveriesgalha2026
+  REGISTRY: abdeliveriesgalha2026.azurecr.io
+  PYTHON_APP_NAME: ab-python-server
+  NODE_AI_APP_NAME: ab-node-ai
+  WEB_APP_NAME: ab-web
+  PYTHON_API_URL: https://ab-python-server.salmonmoss-0b293592.northeurope.azurecontainerapps.io
+  NODE_AI_URL: https://ab-node-ai.salmonmoss-0b293592.northeurope.azurecontainerapps.io
+  WEB_URL: https://ab-web.salmonmoss-0b293592.northeurope.azurecontainerapps.io
+
+jobs:
+  deploy:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Log in to Azure Container Registry
+        run: az acr login --name "$ACR_NAME"
+
+      - name: Compute deployment metadata
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            COMMIT_SHA="${GITHUB_SHA}"
+            RUN_ID="${GITHUB_RUN_ID}"
+          else
+            COMMIT_SHA="${{ github.event.workflow_run.head_sha }}"
+            RUN_ID="${{ github.event.workflow_run.id }}"
+          fi
+
+          SHORT_SHA="${COMMIT_SHA::7}"
+          REVISION_SUFFIX="gha${RUN_ID}-${SHORT_SHA}"
+
+          echo "COMMIT_SHA=${COMMIT_SHA}" >> "$GITHUB_ENV"
+          echo "SHORT_SHA=${SHORT_SHA}" >> "$GITHUB_ENV"
+          echo "REVISION_SUFFIX=${REVISION_SUFFIX}" >> "$GITHUB_ENV"
+
+      - name: Build and push node-ai image
+        run: |
+          docker build \
+            -t "$REGISTRY/ab-deliveries/node-ai:$SHORT_SHA" \
+            ./node-ai
+          docker push "$REGISTRY/ab-deliveries/node-ai:$SHORT_SHA"
+
+      - name: Build and push python-server image
+        run: |
+          docker build \
+            -t "$REGISTRY/ab-deliveries/python-server:$SHORT_SHA" \
+            ./python-server
+          docker push "$REGISTRY/ab-deliveries/python-server:$SHORT_SHA"
+
+      - name: Build and push web image
+        run: |
+          docker build \
+            --build-arg VITE_API_BASE_URL="$PYTHON_API_URL" \
+            -t "$REGISTRY/ab-deliveries/web:$SHORT_SHA" \
+            ./web
+          docker push "$REGISTRY/ab-deliveries/web:$SHORT_SHA"
+
+      - name: Deploy node-ai Container App
+        run: |
+          az containerapp update \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$NODE_AI_APP_NAME" \
+            --image "$REGISTRY/ab-deliveries/node-ai:$SHORT_SHA" \
+            --revision-suffix "${REVISION_SUFFIX}-node"
+
+      - name: Deploy python-server Container App
+        run: |
+          az containerapp update \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$PYTHON_APP_NAME" \
+            --image "$REGISTRY/ab-deliveries/python-server:$SHORT_SHA" \
+            --revision-suffix "${REVISION_SUFFIX}-py"
+
+      - name: Deploy web Container App
+        run: |
+          az containerapp update \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$WEB_APP_NAME" \
+            --image "$REGISTRY/ab-deliveries/web:$SHORT_SHA" \
+            --revision-suffix "${REVISION_SUFFIX}-web"
+
+      - name: Verify node-ai health
+        run: curl --fail --retry 10 --retry-delay 10 "$NODE_AI_URL/health"
+
+      - name: Verify python-server health
+        run: curl --fail --retry 10 --retry-delay 10 "$PYTHON_API_URL/health"
+
+      - name: Verify web root
+        run: curl --fail --retry 10 --retry-delay 10 "$WEB_URL"

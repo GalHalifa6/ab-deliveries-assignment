@@ -34,7 +34,7 @@ Completed:
 - Docker Compose includes a local MongoDB service for a fuller local stack
 - Backend and web automated tests are in place
 - A root PowerShell test runner is available in `scripts/run-tests.ps1`
-- GitHub Actions CI runs Python, Node AI, and web tests on every push and pull request
+- GitHub Actions CI runs Python, Node AI, web, and mobile tests on every push and pull request
 - Azure Container Registry is used for image publishing
 - Azure Container Apps host `web`, `python-server`, and `node-ai`
 - MongoDB Atlas is connected successfully from the deployed Python backend
@@ -291,14 +291,33 @@ Current automated coverage:
 
 GitHub Actions is configured in:
 
+- `.github/dependabot.yml`
 - `.github/workflows/tests.yml`
+- `.github/workflows/deploy-azure.yml`
+- `.github/workflows/secret-scan.yml`
 
 What it does:
 
-- checks out the repository
-- installs Python and runs the `python-server` tests
-- installs Node dependencies for `node-ai` and runs its tests
-- installs Node dependencies for `web` and runs its tests
+- `Tests` runs four independent jobs:
+  - `python-server` tests
+  - `node-ai` tests
+  - `web` tests
+  - `mobile` tests
+- `Deploy to Azure` runs automatically only after the `Tests` workflow completes successfully on `main`
+- the deploy workflow builds fresh Docker images, pushes them to Azure Container Registry, updates the three Azure Container Apps, and runs post-deploy health checks
+- `Secret Scan` runs Gitleaks on every push and pull request to catch committed secrets early
+- Dependabot opens weekly update PRs for Python, Node, Docker, and GitHub Actions dependencies
+
+Required GitHub repository secrets for deployment:
+
+- `AZURE_CREDENTIALS`
+
+Recommended GitHub repository configuration:
+
+- protect the `main` branch
+- require the `Tests` workflow status checks before merge
+- require the `Secret Scan` workflow status check before merge
+- optionally require pull requests before pushing to `main`
 
 ## Deployment Readiness
 
@@ -312,6 +331,7 @@ The project is prepared for deployment-oriented configuration:
 - mobile auth uses access and refresh tokens stored with Expo Secure Store
 - Docker support is available for the deployable services
 - local and CI test flows are in place before Azure deployment
+- Azure deployment is now set up to happen automatically from GitHub after a green `main` build
 
 ## Next Step
 

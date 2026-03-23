@@ -1,0 +1,19 @@
+title = "A.B Deliveries Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Allow obvious local placeholder secrets in example env files"
+paths = [
+  '''python-server/\.env\.example''',
+  '''node-ai/\.env\.example''',
+  '''web/\.env\.example''',
+  '''mobile/\.env\.example'''
+]
+
+[[allowlists]]
+description = "Allow non-secret Azure registry name helper"
+paths = [
+  '''registryName\.txt'''
+]

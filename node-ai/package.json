@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-  "dev": "node --env-file=.env server.js",
-  "start": "node server.js",
-  "test": "node --test"
-},
+    "dev": "node --env-file=.env server.js",
+    "start": "node server.js",
+    "test": "node --test --experimental-test-isolation=none"
+  },
   "dependencies": {
     "openai": "^6.7.0"
   }

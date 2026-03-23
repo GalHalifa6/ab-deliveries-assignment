@@ -4,7 +4,7 @@ import test from 'node:test'
 
 import { createServer } from '../server.js'
 
-const makeRequest = (server, path, { method = 'GET', body = null } = {}) =>
+const makeRequest = (server, path, { method = 'GET', body = null, headers = {} } = {}) =>
   new Promise((resolve, reject) => {
     const { port } = server.address()
     const request = http.request(
@@ -13,12 +13,15 @@ const makeRequest = (server, path, { method = 'GET', body = null } = {}) =>
         port,
         path,
         method,
-        headers: body
-          ? {
-              'Content-Type': 'application/json',
-              'Content-Length': Buffer.byteLength(body),
-            }
-          : undefined,
+        headers: {
+          ...(body
+            ? {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(body),
+              }
+            : {}),
+          ...headers,
+        },
       },
       (response) => {
         let rawBody = ''
@@ -30,6 +33,7 @@ const makeRequest = (server, path, { method = 'GET', body = null } = {}) =>
         response.on('end', () => {
           resolve({
             statusCode: response.statusCode,
+            headers: response.headers,
             body: JSON.parse(rawBody),
           })
         })
@@ -115,6 +119,33 @@ test('POST /chatbot/reply returns a structured AI response', async () => {
     assert.equal(response.body.success, true)
     assert.equal(response.body.reply, 'החבילה שלך בדרך למסירה 🙂')
     assert.equal(response.body.intent, 'tracking')
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())))
+  }
+})
+
+test('POST /chatbot/reply echoes the incoming request id header', async () => {
+  const server = createServer({
+    generateChatbotReplyFn: async () => ({
+      reply: 'Tracking reply',
+      intent: 'tracking',
+    }),
+  })
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
+
+  try {
+    const response = await makeRequest(server, '/chatbot/reply', {
+      method: 'POST',
+      headers: {
+        'X-Request-ID': 'test-request-id-123',
+      },
+      body: JSON.stringify({
+        userMessage: 'Where is AB100001?',
+      }),
+    })
+
+    assert.equal(response.statusCode, 200)
+    assert.equal(response.headers['x-request-id'], 'test-request-id-123')
   } finally {
     await new Promise((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())))
   }

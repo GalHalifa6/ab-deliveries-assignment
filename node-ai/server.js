@@ -2,6 +2,7 @@ import http from 'node:http'
 import { fileURLToPath } from 'node:url'
 import OpenAI from 'openai'
 import { buildChatbotInput, parseChatbotReply } from './chatbotPrompt.js'
+import { buildRequestId, logErrorEvent, logEvent } from './logger.js'
 
 const HOST = process.env.HOST || '0.0.0.0'
 const PORT = Number(process.env.PORT || 3001)
@@ -21,10 +22,12 @@ const buildToastPrompt = () =>
     '- sound a little varied from run to run',
   ].join('\n')
 
-export const generateToastMessage = async () => {
+export const generateToastMessage = async (requestId = null) => {
   if (!openAiClient) {
     throw new Error('OPENAI_API_KEY is not configured for node-ai.')
   }
+
+  logEvent('toast_generation_started', { requestId, model: OPENAI_MODEL })
 
   const response = await openAiClient.responses.create({
     model: OPENAI_MODEL,
@@ -37,20 +40,41 @@ export const generateToastMessage = async () => {
     throw new Error('OpenAI returned an empty toast message.')
   }
 
+  logEvent('toast_generation_succeeded', { requestId, model: OPENAI_MODEL })
+
   return toastMessage
 }
 
-export const generateChatbotReply = async (payload) => {
+export const generateChatbotReply = async (payload, requestId = null) => {
   if (!openAiClient) {
     throw new Error('OPENAI_API_KEY is not configured for node-ai.')
   }
+
+  logEvent('chatbot_generation_started', {
+    requestId,
+    model: OPENAI_MODEL,
+    phone: payload?.customer?.phone,
+    trackingNumber: payload?.shipment?.trackingNumber,
+    channel: payload?.channel,
+  })
 
   const response = await openAiClient.responses.create({
     model: OPENAI_MODEL,
     input: buildChatbotInput(payload),
   })
 
-  return parseChatbotReply(response.output_text)
+  const parsed = parseChatbotReply(response.output_text)
+
+  logEvent('chatbot_generation_succeeded', {
+    requestId,
+    model: OPENAI_MODEL,
+    phone: payload?.customer?.phone,
+    trackingNumber: payload?.shipment?.trackingNumber,
+    intent: parsed.intent,
+    channel: payload?.channel,
+  })
+
+  return parsed
 }
 
 const readJsonBody = async (request) => {
@@ -67,12 +91,13 @@ const readJsonBody = async (request) => {
   return JSON.parse(Buffer.concat(chunks).toString('utf-8'))
 }
 
-const sendJson = (response, statusCode, payload) => {
+const sendJson = (response, statusCode, payload, requestId = null) => {
   response.writeHead(statusCode, {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+    'Access-Control-Allow-Headers': 'Content-Type,Authorization,X-Request-ID',
+    'X-Request-ID': requestId || '',
   })
   response.end(JSON.stringify(payload))
 }
@@ -82,8 +107,24 @@ export const createServer = ({
   generateChatbotReplyFn = generateChatbotReply,
 } = {}) =>
   http.createServer(async (request, response) => {
+    const requestId = request.headers['x-request-id'] || buildRequestId()
+    const startedAt = Date.now()
+
+    logEvent('http_request_started', {
+      requestId,
+      method: request.method,
+      path: request.url,
+    })
+
     if (request.method === 'OPTIONS') {
-      sendJson(response, 200, { ok: true })
+      sendJson(response, 200, { ok: true }, requestId)
+      logEvent('http_request_completed', {
+        requestId,
+        method: request.method,
+        path: request.url,
+        statusCode: 200,
+        durationMs: Date.now() - startedAt,
+      })
       return
     }
 
@@ -93,26 +134,44 @@ export const createServer = ({
         service: 'node-ai',
         openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
         model: OPENAI_MODEL,
+      }, requestId)
+      logEvent('http_request_completed', {
+        requestId,
+        method: request.method,
+        path: request.url,
+        statusCode: 200,
+        durationMs: Date.now() - startedAt,
       })
       return
     }
 
     if (request.method === 'GET' && request.url === '/toast-message') {
       try {
-        const toastMessage = await generateToastMessageFn()
+        const toastMessage = await generateToastMessageFn(requestId)
 
         sendJson(response, 200, {
           success: true,
           toastMessage,
-        })
+        }, requestId)
       } catch (error) {
-        console.error('OpenAI toast generation failed:', error)
+        logErrorEvent('toast_generation_failed', {
+          requestId,
+          error: error.message,
+          model: OPENAI_MODEL,
+        })
         sendJson(response, 503, {
           success: false,
           detail: 'Toast generation is currently unavailable.',
-        })
+        }, requestId)
       }
 
+      logEvent('http_request_completed', {
+        requestId,
+        method: request.method,
+        path: request.url,
+        statusCode: response.statusCode,
+        durationMs: Date.now() - startedAt,
+      })
       return
     }
 
@@ -125,30 +184,62 @@ export const createServer = ({
           sendJson(response, 400, {
             success: false,
             detail: 'userMessage is required.',
+          }, requestId)
+          logEvent('http_request_completed', {
+            requestId,
+            method: request.method,
+            path: request.url,
+            statusCode: 400,
+            durationMs: Date.now() - startedAt,
           })
           return
         }
 
-        const chatbotReply = await generateChatbotReplyFn(payload)
+        logEvent('chatbot_request_received', {
+          requestId,
+          channel: payload.channel,
+          phone: payload.customer?.phone,
+          trackingNumber: payload.shipment?.trackingNumber,
+        })
+
+        const chatbotReply = await generateChatbotReplyFn(payload, requestId)
 
         sendJson(response, 200, {
           success: true,
           ...chatbotReply,
-        })
+        }, requestId)
       } catch (error) {
-        console.error('OpenAI chatbot generation failed:', error)
+        logErrorEvent('chatbot_generation_failed', {
+          requestId,
+          error: error.message,
+          model: OPENAI_MODEL,
+        })
         sendJson(response, 503, {
           success: false,
           detail: 'Chatbot reply generation is currently unavailable.',
-        })
+        }, requestId)
       }
 
+      logEvent('http_request_completed', {
+        requestId,
+        method: request.method,
+        path: request.url,
+        statusCode: response.statusCode,
+        durationMs: Date.now() - startedAt,
+      })
       return
     }
 
     sendJson(response, 404, {
       success: false,
       detail: 'Not found.',
+    }, requestId)
+    logEvent('http_request_completed', {
+      requestId,
+      method: request.method,
+      path: request.url,
+      statusCode: 404,
+      durationMs: Date.now() - startedAt,
     })
   })
 

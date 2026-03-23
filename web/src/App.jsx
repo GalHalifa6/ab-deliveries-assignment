@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import illustrationImage from './assets/71b1ce93ba00a27b8ef291cb449e0a6ea47d2ba9.png'
 import { useAuthToastSession } from './hooks/useAuthToastSession'
+import { sendClientTelemetry } from './services/clientTelemetry'
 
 const INITIAL_FORM_DATA = {
   fullName: '',
@@ -265,6 +266,12 @@ function App() {
       status: 'loading',
       message: currentModeConfig.loadingMessage,
     })
+    sendClientTelemetry({
+      event: 'auth_submit_started',
+      mode,
+      endpoint: `/${currentModeConfig.endpoint}`,
+      email: formData.email,
+    })
 
     try {
       const endpoint = currentModeConfig.endpoint
@@ -293,6 +300,13 @@ function App() {
         status: 'success',
         message: data.message || currentModeConfig.successMessage,
       })
+      sendClientTelemetry({
+        event: 'auth_submit_succeeded',
+        mode,
+        endpoint: `/${currentModeConfig.endpoint}`,
+        email: formData.email,
+        success: true,
+      })
 
       if (isRegisterMode) {
         setToastMessage('')
@@ -304,6 +318,15 @@ function App() {
       if (error.message === sessionExpiredMessage) {
         clearAccessToken()
       }
+
+      sendClientTelemetry({
+        event: 'auth_submit_failed',
+        mode,
+        endpoint: `/${currentModeConfig.endpoint}`,
+        email: formData.email,
+        success: false,
+        detail: error.message || 'Could not connect to the Python server.',
+      })
 
       setSubmitState({
         status: 'error',

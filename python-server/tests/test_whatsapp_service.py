@@ -14,9 +14,9 @@ class WhatsAppServiceUnitTests(unittest.TestCase):
         )
 
     def test_build_twiml_response_escapes_xml_characters(self):
-        twiml = whatsapp_service.build_twiml_response("שלום & תודה")
+        twiml = whatsapp_service.build_twiml_response("Hello & thanks")
 
-        self.assertIn("<Message>שלום &amp; תודה</Message>", twiml)
+        self.assertIn("<Message>Hello &amp; thanks</Message>", twiml)
 
     @patch("app.services.whatsapp_service.config")
     def test_validate_twilio_request_signature_accepts_matching_signature(self, config_mock):
@@ -25,7 +25,7 @@ class WhatsAppServiceUnitTests(unittest.TestCase):
 
         form_fields = {
             "From": "whatsapp:+972501234567",
-            "Body": "איפה המשלוח שלי?",
+            "Body": "Where is my shipment?",
         }
         signature = whatsapp_service.build_twilio_signature("https://example.com/webhook", form_fields)
 
@@ -43,7 +43,7 @@ class WhatsAppServiceUnitTests(unittest.TestCase):
         with self.assertRaises(HTTPException) as error:
             whatsapp_service.validate_twilio_request_signature(
                 url="https://example.com/webhook",
-                form_fields={"Body": "שלום"},
+                form_fields={"Body": "hello"},
                 signature="invalid",
             )
 
@@ -52,7 +52,7 @@ class WhatsAppServiceUnitTests(unittest.TestCase):
     @patch("app.services.whatsapp_service.chatbot_service.generate_chatbot_reply")
     def test_handle_incoming_whatsapp_message_delegates_to_chatbot_service(self, generate_reply_mock):
         generate_reply_mock.return_value = {
-            "reply": "החבילה בדרך למסירה 🙂",
+            "reply": "Your shipment is out for delivery.",
             "intent": "tracking",
             "channel": "whatsapp",
             "customer": {
@@ -65,15 +65,16 @@ class WhatsAppServiceUnitTests(unittest.TestCase):
 
         result = whatsapp_service.handle_incoming_whatsapp_message(
             from_number="whatsapp:+972501234567",
-            message_text="איפה החבילה שלי?",
-            profile_name="גל חליפה",
+            message_text="Where is my shipment?",
+            profile_name="Gal Halifa",
         )
 
         generate_reply_mock.assert_called_once_with(
             channel="whatsapp",
             customer_phone="+972501234567",
-            message_text="איפה החבילה שלי?",
-            customer_name="גל חליפה",
+            message_text="Where is my shipment?",
+            customer_name="Gal Halifa",
+            request_id=None,
         )
-        self.assertEqual(result["reply"], "החבילה בדרך למסירה 🙂")
-        self.assertIn("<Message>החבילה בדרך למסירה 🙂</Message>", result["twiml"])
+        self.assertEqual(result["reply"], "Your shipment is out for delivery.")
+        self.assertIn("<Message>Your shipment is out for delivery.</Message>", result["twiml"])

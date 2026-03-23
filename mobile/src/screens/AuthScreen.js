@@ -16,6 +16,7 @@ import {
   INITIAL_FORM_DATA,
   INITIAL_SUBMIT_STATE,
 } from '../constants/auth'
+import { sendClientTelemetry } from '../services/clientTelemetry'
 import { authenticatedFetch, persistAuthResponse } from '../services/authClient'
 import { clearAuthTokens } from '../services/authStorage'
 import { colors, spacing, typography } from '../constants/theme'
@@ -76,13 +77,28 @@ export function AuthScreen() {
   }
 
   const fetchToastMessage = async () => {
+    sendClientTelemetry({
+      event: 'mobile_toast_fetch_started',
+      endpoint: '/me/toast',
+    })
     const { response, data } = await authenticatedFetch('/me/toast')
 
     if (response.ok && data.ready && data.toastMessage) {
+      sendClientTelemetry({
+        event: 'mobile_toast_fetch_succeeded',
+        endpoint: '/me/toast',
+        success: true,
+      })
       showToast(data.toastMessage)
       return true
     }
 
+    sendClientTelemetry({
+      event: 'mobile_toast_fetch_failed',
+      endpoint: '/me/toast',
+      success: false,
+      detail: response.ok ? 'toast_not_ready' : data.detail || 'request_failed',
+    })
     return false
   }
 
@@ -143,6 +159,13 @@ export function AuthScreen() {
       status: 'loading',
       message: currentModeConfig.loadingMessage,
     })
+    sendClientTelemetry({
+      event: 'auth_submit_started',
+      mode,
+      endpoint: `/${currentModeConfig.endpoint}`,
+      email: formData.email,
+      phone: isRegisterMode ? formData.phone : undefined,
+    })
 
     try {
       const response = await fetch(`${API_BASE_URL}/${currentModeConfig.endpoint}`, {
@@ -164,6 +187,14 @@ export function AuthScreen() {
         status: 'success',
         message: data.message || currentModeConfig.successMessage,
       })
+      sendClientTelemetry({
+        event: 'auth_submit_succeeded',
+        mode,
+        endpoint: `/${currentModeConfig.endpoint}`,
+        email: formData.email,
+        phone: isRegisterMode ? formData.phone : undefined,
+        success: true,
+      })
 
       if (data.auth?.accessToken && data.refreshToken) {
         await persistAuthResponse(data)
@@ -184,6 +215,16 @@ export function AuthScreen() {
       if (error.message === 'Your session has expired. Please sign in again.') {
         await clearAuthTokens()
       }
+
+      sendClientTelemetry({
+        event: 'auth_submit_failed',
+        mode,
+        endpoint: `/${currentModeConfig.endpoint}`,
+        email: formData.email,
+        phone: isRegisterMode ? formData.phone : undefined,
+        success: false,
+        detail: error.message || 'Could not connect to the Python server.',
+      })
 
       setSubmitState({
         status: 'error',

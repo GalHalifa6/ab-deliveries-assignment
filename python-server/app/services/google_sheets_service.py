@@ -4,6 +4,7 @@ import logging
 from functools import lru_cache
 
 from app import config
+from app.observability import log_event
 
 
 logger = logging.getLogger(__name__)
@@ -46,8 +47,14 @@ def get_sheets_service():
     return build("sheets", "v4", credentials=credentials, cache_discovery=False)
 
 
-def append_chatbot_log_entry(entry: dict) -> bool:
+def append_chatbot_log_entry(entry: dict, request_id: str | None = None) -> bool:
     if not is_google_sheets_logging_enabled():
+        log_event(
+            logger,
+            "google_sheets_log_skipped",
+            requestId=request_id,
+            reason="not_configured",
+        )
         return False
 
     values = [[
@@ -77,7 +84,22 @@ def append_chatbot_log_entry(entry: dict) -> bool:
             .execute()
         )
     except Exception as error:  # pragma: no cover - defensive around external SDK/network
-        logger.warning("Google Sheets logging failed: %s", error)
+        log_event(
+            logger,
+            "google_sheets_log_failed",
+            requestId=request_id,
+            phone=entry.get("phone"),
+            trackingNumber=entry.get("trackingNumber"),
+            error=str(error),
+        )
         return False
 
+    log_event(
+        logger,
+        "google_sheets_log_succeeded",
+        requestId=request_id,
+        phone=entry.get("phone"),
+        trackingNumber=entry.get("trackingNumber"),
+        intent=entry.get("intent"),
+    )
     return True

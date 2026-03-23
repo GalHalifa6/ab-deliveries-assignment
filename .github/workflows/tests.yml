@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  tests:
+  python-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -27,6 +27,13 @@ jobs:
         working-directory: python-server
         run: python -m unittest discover -s tests -v
 
+  node-ai-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
@@ -34,16 +41,48 @@ jobs:
 
       - name: Install Node AI dependencies
         working-directory: node-ai
-        run: npm install
+        run: npm ci
 
       - name: Run Node AI tests
         working-directory: node-ai
         run: npm test
 
+  web-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
       - name: Install web dependencies
         working-directory: web
-        run: npm install
+        run: npm ci
 
       - name: Run web tests
         working-directory: web
         run: npm test
+
+  mobile-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
+      - name: Install mobile dependencies
+        working-directory: mobile
+        run: npm ci
+
+      - name: Run mobile tests
+        working-directory: mobile
+        run: npm test -- --runInBand

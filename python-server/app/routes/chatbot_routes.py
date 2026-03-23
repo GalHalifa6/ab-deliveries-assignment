@@ -18,12 +18,13 @@ class ChatbotMessageRequest(BaseModel):
 
 
 @router.post("/messages")
-def create_chatbot_message(payload: ChatbotMessageRequest):
+def create_chatbot_message(payload: ChatbotMessageRequest, request: Request):
     return chatbot_service.generate_chatbot_reply(
         channel=payload.channel,
         customer_phone=payload.customerPhone,
         message_text=payload.message,
         customer_name=payload.customerName,
+        request_id=request.state.request_id,
     )
 
 
@@ -51,6 +52,11 @@ async def handle_whatsapp_webhook(
         from_number=from_number,
         message_text=message_text,
         profile_name=profile_name,
+        request_id=request.state.request_id,
     )
 
-    return Response(content=whatsapp_result["twiml"], media_type="application/xml")
+    return Response(
+        content=whatsapp_result["twiml"],
+        media_type="application/xml",
+        headers={"X-Request-ID": request.state.request_id},
+    )

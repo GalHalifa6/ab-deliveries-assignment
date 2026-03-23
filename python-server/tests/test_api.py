@@ -487,6 +487,22 @@ class PythonServerApiIntegrationTests(unittest.TestCase):
         self.assertEqual(body["customer"]["phone"], "0501234567")
         self.assertEqual(body["reply"], "שלום, איך אפשר לעזור עם המשלוח?")
         self.assertEqual(body["intent"], "general")
+        self.assertTrue(response.headers.get("x-request-id"))
+
+    def test_chatbot_messages_echoes_request_id_header(self):
+        response = self.client.post(
+            "/chatbot/messages",
+            headers={"X-Request-ID": "python-test-request-id"},
+            json={
+                "channel": "local-test",
+                "customerName": "Gal Halifa",
+                "customerPhone": "0501234567",
+                "message": "Where is AB100001?",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers.get("x-request-id"), "python-test-request-id")
 
     def test_chatbot_messages_requires_phone_and_message(self):
         response = self.client.post(

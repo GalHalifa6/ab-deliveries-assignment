@@ -1,3 +1,4 @@
+import logging
 import base64
 import hashlib
 import hmac
@@ -7,7 +8,11 @@ from xml.sax.saxutils import escape
 from fastapi import HTTPException
 
 from app import config
+from app.observability import log_event
 from app.services import chatbot_service
+
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_whatsapp_phone(from_number: str) -> str:
@@ -64,13 +69,37 @@ def extract_whatsapp_form_fields(raw_body: bytes) -> dict[str, str]:
     return {key: value for key, value in parsed_pairs}
 
 
-def handle_incoming_whatsapp_message(from_number: str, message_text: str, profile_name: str | None = None) -> dict:
+def handle_incoming_whatsapp_message(
+    from_number: str,
+    message_text: str,
+    profile_name: str | None = None,
+    request_id: str | None = None,
+) -> dict:
     normalized_phone = normalize_whatsapp_phone(from_number)
+    log_event(
+        logger,
+        "whatsapp_webhook_received",
+        requestId=request_id,
+        channel="whatsapp",
+        phone=normalized_phone,
+        customerName=profile_name,
+    )
     result = chatbot_service.generate_chatbot_reply(
         channel="whatsapp",
         customer_phone=normalized_phone,
         message_text=message_text,
         customer_name=profile_name,
+        request_id=request_id,
+    )
+
+    log_event(
+        logger,
+        "whatsapp_twiml_built",
+        requestId=request_id,
+        channel="whatsapp",
+        phone=normalized_phone,
+        trackingNumber=(result.get("shipment") or {}).get("trackingNumber"),
+        intent=result.get("intent"),
     )
 
     return {

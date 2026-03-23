@@ -88,6 +88,48 @@ The working deployment was created in this order:
 12. Update Python CORS for the live web URL
 13. Add OpenAI environment variables to `ab-node-ai`
 
+## GitHub Actions CI/CD
+
+The repository now supports a gated GitHub Actions deployment flow:
+
+1. `Tests` runs on every push and pull request.
+2. The workflow runs four suites independently:
+   - `python-server`
+   - `node-ai`
+   - `web`
+   - `mobile`
+3. `Deploy to Azure` runs automatically only after `Tests` completes successfully on `main`.
+4. The deploy workflow:
+   - logs into Azure
+   - logs into Azure Container Registry
+   - builds and pushes fresh Docker images for `node-ai`, `python-server`, and `web`
+   - updates the three Azure Container Apps
+   - verifies the live health endpoints after deployment
+
+Workflow files:
+
+- `.github/dependabot.yml`
+- `.github/workflows/tests.yml`
+- `.github/workflows/deploy-azure.yml`
+- `.github/workflows/secret-scan.yml`
+
+### Required GitHub Secret
+
+The deployment workflow expects this repository secret:
+
+- `AZURE_CREDENTIALS`
+
+This should contain the Azure service principal JSON used by `azure/login@v2`.
+
+### Recommended GitHub Branch Settings
+
+To make GitHub reject untested changes before they reach production:
+
+- protect the `main` branch
+- require the `Tests` workflow to pass before merge
+- require the `Secret Scan` workflow to pass before merge
+- optionally require pull requests before allowing changes into `main`
+
 ## Important Azure Notes
 
 - `westeurope` initially failed due to Azure capacity constraints for Container Apps, so the working Container Apps environment was created in `northeurope`

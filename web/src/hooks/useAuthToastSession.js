@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { sendClientTelemetry } from '../services/clientTelemetry'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 const WEB_CLIENT_TYPE = 'web'
@@ -69,6 +70,11 @@ export function useAuthToastSession() {
     }
 
     refreshPromiseRef.current = (async () => {
+      sendClientTelemetry({
+        event: 'auth_refresh_started',
+        endpoint: '/refresh',
+      })
+
       const response = await fetch(`${API_BASE_URL}/refresh`, {
         method: 'POST',
         credentials: 'include',
@@ -80,11 +86,22 @@ export function useAuthToastSession() {
       const data = await parseJsonResponse(response)
 
       if (!response.ok || !data.auth?.accessToken) {
+        sendClientTelemetry({
+          event: 'auth_refresh_failed',
+          endpoint: '/refresh',
+          success: false,
+          detail: data.detail || SESSION_EXPIRED_MESSAGE,
+        })
         clearAccessToken()
         throw new Error(data.detail || SESSION_EXPIRED_MESSAGE)
       }
 
       setCurrentAccessToken(data.auth.accessToken)
+      sendClientTelemetry({
+        event: 'auth_refresh_succeeded',
+        endpoint: '/refresh',
+        success: true,
+      })
       return data.auth.accessToken
     })()
 
@@ -186,6 +203,11 @@ export function useAuthToastSession() {
     })
 
     toastEventSourceRef.current = eventSource
+    sendClientTelemetry({
+      event: 'web_toast_stream_connected',
+      endpoint: '/me/toast/stream',
+      success: true,
+    })
 
     const scheduleReconnect = () => {
       eventSource.close()
@@ -200,6 +222,11 @@ export function useAuthToastSession() {
       toastReconnectTimeoutRef.current = window.setTimeout(() => {
         void subscribeToToastStream(attempt + 1)
       }, TOAST_STREAM_RECONNECT_DELAY_MS)
+      sendClientTelemetry({
+        event: 'web_toast_stream_reconnect_scheduled',
+        endpoint: '/me/toast/stream',
+        detail: `attempt:${attempt + 1}`,
+      })
     }
 
     eventSource.addEventListener('toast-ready', (event) => {
@@ -221,6 +248,11 @@ export function useAuthToastSession() {
     })
 
     eventSource.onerror = () => {
+      sendClientTelemetry({
+        event: 'web_toast_stream_error',
+        endpoint: '/me/toast/stream',
+        success: false,
+      })
       scheduleReconnect()
     }
   }

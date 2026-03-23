@@ -108,7 +108,6 @@ The repository now supports a gated GitHub Actions deployment flow:
 
 Workflow files:
 
-- `.github/dependabot.yml`
 - `.github/workflows/tests.yml`
 - `.github/workflows/deploy-azure.yml`
 - `.github/workflows/secret-scan.yml`

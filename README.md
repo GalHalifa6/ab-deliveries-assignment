@@ -291,7 +291,6 @@ Current automated coverage:
 
 GitHub Actions is configured in:
 
-- `.github/dependabot.yml`
 - `.github/workflows/tests.yml`
 - `.github/workflows/deploy-azure.yml`
 - `.github/workflows/secret-scan.yml`
@@ -306,7 +305,6 @@ What it does:
 - `Deploy to Azure` runs automatically only after the `Tests` workflow completes successfully on `main`
 - the deploy workflow builds fresh Docker images, pushes them to Azure Container Registry, updates the three Azure Container Apps, and runs post-deploy health checks
 - `Secret Scan` runs Gitleaks on every push and pull request to catch committed secrets early
-- Dependabot opens weekly update PRs for Python, Node, Docker, and GitHub Actions dependencies
 
 Required GitHub repository secrets for deployment:
 

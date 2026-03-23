@@ -11,6 +11,46 @@ This repository contains the implementation for the A.B Deliveries technical ass
 - `chatbot/` - AI chatbot prompt and chatbot-related assets
 - `docs/` - Architecture and planning documents
 
+## Technologies Used
+
+- Frontend web
+  - React
+  - Vite
+  - Vitest
+  - Testing Library
+- Frontend mobile
+  - React Native
+  - Expo
+  - Expo Secure Store
+  - Jest
+- Backend
+  - Python
+  - FastAPI
+  - Uvicorn
+  - PyMongo
+  - Passlib
+  - PyJWT
+  - `python-multipart`
+  - `httpx`
+- AI service
+  - Node.js
+  - OpenAI Node SDK
+- Database and external services
+  - MongoDB Atlas
+  - OpenAI API
+  - Twilio WhatsApp Sandbox
+  - Google Sheets API
+- DevOps and cloud
+  - Azure Container Apps
+  - Azure Container Registry
+  - Docker
+  - Docker Compose
+  - GitHub Actions
+  - CodeQL
+  - Gitleaks
+- Design and product assets
+  - Figma
+
 ## Current Status
 
 Completed:

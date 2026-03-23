@@ -202,6 +202,22 @@ function ChatBubble({ role, children }) {
   )
 }
 
+function ChatIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none">
+      <path
+        d="M5 7.5C5 6.12 6.12 5 7.5 5H16.5C17.88 5 19 6.12 19 7.5V13.5C19 14.88 17.88 16 16.5 16H11L7 19V16H7.5C6.12 16 5 14.88 5 13.5V7.5Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M8.5 9.5H15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M8.5 12.5H12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 function App() {
   const [mode, setMode] = useState('login')
   const [showPassword, setShowPassword] = useState(false)
@@ -209,6 +225,7 @@ function App() {
   const [formData, setFormData] = useState(INITIAL_FORM_DATA)
   const [submitState, setSubmitState] = useState(INITIAL_SUBMIT_STATE)
   const [currentUser, setCurrentUser] = useState(null)
+  const [isChatOpen, setIsChatOpen] = useState(false)
   const [chatProfile, setChatProfile] = useState({
     fullName: '',
     phone: '',
@@ -755,86 +772,96 @@ function App() {
                 )}
               </div>
 
-              <section className="chatbot-card" aria-label="Delivery assistant">
-                <div className="chatbot-card__header">
-                  <div className="chatbot-card__header-copy">
-                    <p className="chatbot-card__eyebrow">Website chatbot</p>
-                    <h3 className="chatbot-card__title">Delivery assistant</h3>
-                    <p className="chatbot-card__subtitle">
-                      Ask about a shipment, get a quick status update, and keep the conversation logged under channel
-                      <strong> web</strong>.
-                    </p>
-                  </div>
-                  <span className="chatbot-card__channel">web</span>
-                </div>
+              <div className="chatbot-dock">
+                {isChatOpen ? (
+                  <section className="chatbot-card" id="website-chatbot-panel" aria-label="Delivery assistant">
+                    <div className="chatbot-card__header">
+                      <div className="chatbot-card__header-copy">
+                        <p className="chatbot-card__eyebrow">Website chatbot</p>
+                        <h3 className="chatbot-card__title">Delivery assistant</h3>
+                      </div>
+                      <button
+                        className="chatbot-card__close"
+                        type="button"
+                        aria-label="Close chatbot"
+                        onClick={() => setIsChatOpen(false)}
+                      >
+                        Close
+                      </button>
+                    </div>
 
-                <div className="chatbot-card__profile">
-                  <TextField
-                    ariaLabel="Chat name"
-                    icon={<PersonIcon />}
-                    type="text"
-                    name="fullName"
-                    placeholder="Your name"
-                    value={chatProfile.fullName}
-                    onChange={handleChatProfileChange}
-                    disabled={isChatSubmitting}
-                  />
-                  <TextField
-                    ariaLabel="Chat phone number"
-                    icon={<PhoneIcon />}
-                    type="tel"
-                    name="phone"
-                    placeholder="Contact phone"
-                    value={chatProfile.phone}
-                    onChange={handleChatProfileChange}
-                    disabled={isChatSubmitting}
-                  />
-                </div>
+                    <div className="chatbot-card__profile">
+                      <TextField
+                        ariaLabel="Chat name"
+                        icon={<PersonIcon />}
+                        type="text"
+                        name="fullName"
+                        placeholder="Your name"
+                        value={chatProfile.fullName}
+                        onChange={handleChatProfileChange}
+                        disabled={isChatSubmitting}
+                      />
+                      <TextField
+                        ariaLabel="Chat phone number"
+                        icon={<PhoneIcon />}
+                        type="tel"
+                        name="phone"
+                        placeholder="Contact phone"
+                        value={chatProfile.phone}
+                        onChange={handleChatProfileChange}
+                        disabled={isChatSubmitting}
+                      />
+                    </div>
 
-                {currentUser ? (
-                  <p className="chatbot-card__hint">
-                    Using your signed-in details from {currentUser.email}.
-                  </p>
-                ) : (
-                  <p className="chatbot-card__hint">
-                    No login needed. Just add your name and phone number so the conversation can be tracked properly.
-                  </p>
-                )}
+                    <div className="chatbot-card__messages" role="log" aria-live="polite">
+                      {chatMessages.map((message) => (
+                        <ChatBubble key={message.id} role={message.role}>
+                          {message.content}
+                        </ChatBubble>
+                      ))}
+                    </div>
 
-                <div className="chatbot-card__messages" role="log" aria-live="polite">
-                  {chatMessages.map((message) => (
-                    <ChatBubble key={message.id} role={message.role}>
-                      {message.content}
-                    </ChatBubble>
-                  ))}
-                </div>
+                    <div className="chatbot-card__composer">
+                      <textarea
+                        className="chatbot-card__input"
+                        name="chatMessage"
+                        placeholder="Ask about a shipment or paste a tracking number like GP6566"
+                        value={chatInput}
+                        onChange={(event) => setChatInput(event.target.value)}
+                        disabled={isChatSubmitting}
+                        rows={2}
+                      />
+                      <button
+                        className="button button--primary chatbot-card__send"
+                        type="button"
+                        onClick={handleChatSubmit}
+                        disabled={isChatDisabled}
+                      >
+                        {isChatSubmitting ? 'Sending...' : 'Send message'}
+                      </button>
+                    </div>
 
-                <div className="chatbot-card__composer">
-                  <textarea
-                    className="chatbot-card__input"
-                    name="chatMessage"
-                    placeholder="Ask about a shipment or paste a tracking number like AB1001"
-                    value={chatInput}
-                    onChange={(event) => setChatInput(event.target.value)}
-                    disabled={isChatSubmitting}
-                    rows={2}
-                  />
-                  <button
-                    className="button button--primary chatbot-card__send"
-                    type="button"
-                    onClick={handleChatSubmit}
-                    disabled={isChatDisabled}
-                  >
-                    {isChatSubmitting ? 'Sending...' : 'Send message'}
-                  </button>
-                </div>
-
-                {chatState.status !== 'idle' ? (
-                  <p className={`chatbot-card__message chatbot-card__message--${chatState.status}`}>
-                    {chatState.message}
-                  </p>
+                    {chatState.status !== 'idle' ? (
+                      <p className={`chatbot-card__message chatbot-card__message--${chatState.status}`}>
+                        {chatState.message}
+                      </p>
+                    ) : null}
+                  </section>
                 ) : null}
-              </section>
+
+                <button
+                  className="chatbot-launcher"
+                  type="button"
+                  aria-expanded={isChatOpen}
+                  aria-controls="website-chatbot-panel"
+                  onClick={() => setIsChatOpen((current) => !current)}
+                >
+                  <span className="chatbot-launcher__icon" aria-hidden="true">
+                    <ChatIcon />
+                  </span>
+                  <span>{isChatOpen ? 'Hide chat' : 'Chat with us'}</span>
+                </button>
+              </div>
             </div>
           </form>
         </div>

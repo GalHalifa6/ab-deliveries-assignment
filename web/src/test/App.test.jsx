@@ -442,6 +442,8 @@ describe('App auth flow', () => {
 
     render(<App />)
 
+    fireEvent.click(screen.getByRole('button', { name: 'Chat with us' }))
+
     fireEvent.change(screen.getByPlaceholderText('Your name'), {
       target: { value: 'Gal Halifa' },
     })
@@ -450,11 +452,11 @@ describe('App auth flow', () => {
     })
 
     expect(
-      await screen.findByPlaceholderText('Ask about a shipment or paste a tracking number like AB1001')
+      await screen.findByPlaceholderText('Ask about a shipment or paste a tracking number like GP6566')
     ).toBeInTheDocument()
 
     fireEvent.change(
-      screen.getByPlaceholderText('Ask about a shipment or paste a tracking number like AB1001'),
+      screen.getByPlaceholderText('Ask about a shipment or paste a tracking number like GP6566'),
       {
         target: { value: 'Where is package AB1001?' },
       }

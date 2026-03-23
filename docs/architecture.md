@@ -11,6 +11,7 @@ The implementation includes:
 - a Python server built with FastAPI
 - MongoDB for persistence
 - a second Node.js service that generates a welcome toast message through OpenAI
+- a second Node.js service that also powers the chatbot reply generation
 - Azure deployment for the production stack
 
 ## Client Security Model
@@ -118,6 +119,8 @@ Current endpoints:
 - `GET /me/toast`
 - `POST /me/toast/stream-session`
 - `GET /me/toast/stream`
+- `POST /chatbot/messages`
+- `POST /chatbot/webhooks/whatsapp`
 
 ## AI Toast Service
 
@@ -132,6 +135,7 @@ Current endpoints:
 
 - `GET /health`
 - `GET /toast-message`
+- `POST /chatbot/reply`
 
 ## Database Layer
 
@@ -143,6 +147,7 @@ MongoDB stores:
 - generated toast message
 - created date
 - refresh-token sessions used for rotation and revocation
+- shipment records used by the chatbot status flow
 
 ## Deployment
 
@@ -160,6 +165,8 @@ Production planning includes:
 - `REFRESH_COOKIE_SECURE=true` in Azure
 - `STREAM_COOKIE_SECURE=true` in Azure
 - auth secrets configured through Azure-managed environment variables
+- Google Sheets service-account credentials configured through environment variables
+- Twilio WhatsApp sandbox webhook integration for chatbot traffic
 
 ## Testing Strategy
 
@@ -179,9 +186,14 @@ The test strategy is split by service:
 - `node-ai/tests/`
   - `/health`
   - `/toast-message`
+  - `/chatbot/reply`
   - toast generation failure handling
   - CORS preflight
   - 404 handling
+- `python-server/tests/`
+  - `/chatbot/messages`
+  - `/chatbot/webhooks/whatsapp`
+  - shipment lookup and chatbot orchestration behavior
 - `web/src/test/`
   - auth mode switching
   - registration validation
@@ -205,11 +217,13 @@ The current architecture goal is:
 - SSE-based toast delivery on web with a low-noise mobile fallback
 - production-friendly Azure deployment settings
 
-## Remaining Assignment Work
+## Chatbot Extension
 
-Still not implemented in this repository:
+The extended chatbot assignment is now implemented with:
 
-- the Hebrew customer-service and sales chatbot
-- chatbot deployment on WhatsApp, SMS, Instagram, Facebook, or a dedicated website surface
-- conversation logging to Google Sheets, Excel, or a similar tool
-- prompt documentation for the chatbot section of the assignment
+- Twilio WhatsApp Sandbox as the first live channel
+- `python-server/` as the channel adapter and chatbot orchestrator
+- MongoDB `shipments` as the package-status source
+- `node-ai/` as the OpenAI-backed reply service
+- Google Sheets logging for conversation records
+- automatic Hebrew or English replies based on the customer's message language

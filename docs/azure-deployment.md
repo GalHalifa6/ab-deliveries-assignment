@@ -21,7 +21,7 @@ The deployed stack uses:
 
 - `web/` as a static React build served by Nginx
 - `python-server/` as the main FastAPI backend
-- `node-ai/` as the toast-message backend
+- `node-ai/` as the toast-message and chatbot-reply backend
 - MongoDB Atlas as the external database
 
 ## Auth Behavior In Production
@@ -107,6 +107,8 @@ The following fixes were required during deployment:
 - `node-ai` now uses OpenAI through `OPENAI_API_KEY` and `OPENAI_MODEL`
 - The deployed model is currently `gpt-5-mini`
 - The registration flow saves the user first and stores the toast asynchronously
+- The chatbot prompt was copied into `node-ai/` so the container can load it directly in Azure
+- Google Sheets logging in Azure uses a base64-encoded service-account JSON secret to avoid CLI JSON escaping issues
 
 ## Required Azure App Settings
 
@@ -129,6 +131,21 @@ The Python backend now needs these auth-related settings in Azure in addition to
 - `REFRESH_SESSIONS_COLLECTION_NAME`
 - `ALLOWED_ORIGINS`
 
+Chatbot-related Azure settings:
+
+- `NODE_AI_CHATBOT_URL`
+- `SHIPMENTS_COLLECTION_NAME`
+- `GOOGLE_SHEETS_LOGGING_ENABLED`
+- `GOOGLE_SHEETS_SPREADSHEET_ID`
+- `GOOGLE_SHEETS_SHEET_NAME`
+- one of:
+  - `GOOGLE_SERVICE_ACCOUNT_JSON`
+  - `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64`
+  - `GOOGLE_SERVICE_ACCOUNT_FILE`
+- `TWILIO_WHATSAPP_NUMBER`
+- `TWILIO_VALIDATE_SIGNATURE`
+- `TWILIO_WHATSAPP_WEBHOOK_URL`
+
 Recommended notes:
 
 - use strong random values for `JWT_ACCESS_TOKEN_SECRET` and `STREAM_TOKEN_SECRET`
@@ -138,13 +155,13 @@ Recommended notes:
 
 ## Current Known Limitations
 
-- The Hebrew chatbot and conversation logging are not implemented yet
+- Twilio Sandbox is suitable for testing, but a production WhatsApp sender is still needed for public customer access
 - MongoDB credentials used during testing should be rotated after deployment
 - Mobile does not yet have end-to-end UI tests, only focused auth service tests
 
 ## Recommended Next Steps
 
 1. Rotate the MongoDB Atlas password and update the Azure app setting
-2. Verify the web login flow with browser dev tools and HTTPS cookies
-3. Decide whether mobile needs one more delayed toast check or a richer real-time channel later
+2. Turn on Twilio signature validation with the real production credentials
+3. Verify the live WhatsApp chatbot flow with additional multi-user test cases
 4. Add a password-reset flow when the core auth migration is stable

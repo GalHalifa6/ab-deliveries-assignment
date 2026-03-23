@@ -7,7 +7,7 @@ Build a minimal but realistic chatbot flow for the extended assignment with:
 - WhatsApp as the customer channel
 - MongoDB as the shipment-status source
 - Google Sheets as the conversation log
-- OpenAI as the Hebrew customer-service and sales assistant
+- OpenAI as the customer-service and sales assistant
 - prompt documentation stored in the repository
 
 The goal is not to build a full logistics platform. The goal is to build a clean end-to-end system that:
@@ -15,9 +15,23 @@ The goal is not to build a full logistics platform. The goal is to build a clean
 1. receives a customer message from WhatsApp
 2. identifies the customer by phone number or tracking number
 3. looks up shipment data in MongoDB
-4. generates a Hebrew reply
+4. generates a reply in the same language used by the customer
 5. gently supports upsell when relevant
 6. logs the conversation to Google Sheets
+
+## Current Implementation Status
+
+The repository already includes a working end-to-end chatbot flow:
+
+- Twilio WhatsApp Sandbox is the first live channel adapter
+- `python-server/` exposes:
+  - `POST /chatbot/messages`
+  - `POST /chatbot/webhooks/whatsapp`
+- `node-ai/` exposes:
+  - `POST /chatbot/reply`
+- MongoDB stores shipment data in `shipments`
+- Google Sheets logging is implemented and verified
+- Azure Container Apps host the live `python-server` and `node-ai` chatbot services
 
 ## Recommended Architecture
 
@@ -32,7 +46,7 @@ Use the existing repo in this shape:
 - `node-ai/`
   - OpenAI integration
   - chatbot prompt construction
-  - structured response generation in Hebrew
+  - structured response generation in the customer's language
 
 - `chatbot/`
   - architecture note
@@ -276,7 +290,7 @@ This is the recommended runtime flow for the first channel adapter, WhatsApp.
 
 The assistant should:
 
-- answer in Hebrew
+- answer in the same language used by the customer
 - be concise and useful
 - provide shipment status if data exists
 - ask for missing details if data is insufficient
@@ -393,7 +407,11 @@ Use this exact system prompt for the chatbot:
 You are an AI customer service and sales assistant for a delivery company called "A.B Deliveries".
 
 LANGUAGE:
-- Always respond in Hebrew.
+- Support both Hebrew and English.
+- Automatically reply in the same language used by the customer.
+- If the customer writes in Hebrew, reply in Hebrew.
+- If the customer writes in English, reply in English.
+- Do not ask the customer which language they prefer.
 
 GOALS:
 1. Help customers with delivery-related questions.
@@ -432,7 +450,7 @@ You MUST return ONLY a valid JSON object with NO extra text.
 
 Format:
 {
-  "reply": "<Hebrew response>",
+  "reply": "<response in the customer's language>",
   "intent": "<tracking | support | sales | general>"
 }
 
@@ -453,7 +471,7 @@ The system prompt should define:
 - identity:
   - you are the Hebrew WhatsApp assistant of A.B Deliveries
 - language:
-  - reply in natural, friendly Hebrew
+  - reply in natural, friendly language that matches the customer's message
 - role:
   - customer support for package status
   - light sales support for new deliveries
@@ -463,7 +481,8 @@ The system prompt should define:
   - if status exists, explain it clearly
   - if appropriate, gently suggest ordering another delivery
   - do not be aggressive or overly salesy
-  - keep messages concise for WhatsApp
+- keep messages concise for WhatsApp
+- never ask the user which language they want; infer it from their message
 
 ### Dynamic Context Block
 
@@ -535,6 +554,7 @@ The current implementation is environment-driven so the same code can run:
 - locally with logging disabled
 - in Azure with Google Sheets enabled
 - in Twilio sandbox or production WhatsApp mode
+- in Hebrew or English without changing deployment configuration
 
 ### Python Server Environment Variables
 
@@ -548,7 +568,7 @@ Google Sheets logging:
 - `GOOGLE_SHEETS_LOGGING_ENABLED`
 - `GOOGLE_SHEETS_SPREADSHEET_ID`
 - `GOOGLE_SHEETS_SHEET_NAME`
-- `GOOGLE_SERVICE_ACCOUNT_JSON` or `GOOGLE_SERVICE_ACCOUNT_FILE`
+- `GOOGLE_SERVICE_ACCOUNT_JSON` or `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64` or `GOOGLE_SERVICE_ACCOUNT_FILE`
 
 WhatsApp / Twilio:
 
@@ -572,7 +592,7 @@ Recommended production behavior:
 4. Set:
    - `GOOGLE_SHEETS_LOGGING_ENABLED=true`
    - `GOOGLE_SHEETS_SPREADSHEET_ID=<spreadsheet id>`
-   - either `GOOGLE_SERVICE_ACCOUNT_JSON=<json>` or `GOOGLE_SERVICE_ACCOUNT_FILE=<path>`
+   - either `GOOGLE_SERVICE_ACCOUNT_JSON=<json>` or `GOOGLE_SERVICE_ACCOUNT_JSON_BASE64=<base64>` or `GOOGLE_SERVICE_ACCOUNT_FILE=<path>`
 
 Recommended sheet columns:
 
@@ -705,7 +725,7 @@ Recommended approach:
 
 ## Recommended First Build Order
 
-Build in this order:
+Build order that was used:
 
 1. Create `shipments` collection and seed 5 to 10 realistic records.
 2. Add Python shipment repository.

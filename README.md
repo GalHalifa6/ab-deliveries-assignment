@@ -8,7 +8,7 @@ This repository contains the implementation for the A.B Deliveries technical ass
 - `mobile/` - React Native mobile application
 - `python-server/` - Python backend API
 - `node-ai/` - Node.js service for AI-generated toast messages
-- `chatbot/` - Hebrew AI chatbot implementation
+- `chatbot/` - AI chatbot prompt and chatbot-related assets
 - `docs/` - Architecture and planning documents
 
 ## Current Status
@@ -40,15 +40,12 @@ Completed:
 - MongoDB Atlas is connected successfully from the deployed Python backend
 - The registration toast flow now saves the user first, waits for a real OpenAI-generated toast, and avoids writing a fake fallback message
 - Production `node-ai`, `python-server`, and `web` have been redeployed with the current toast-flow fixes
+- WhatsApp chatbot flow is live through Twilio Sandbox
+- Chatbot conversations are logged to Google Sheets
+- Shipment lookup is backed by a real MongoDB `shipments` collection
+- The chatbot prompt is documented in `chatbot/PROMPT.md`
 
-Still pending:
 
-- Final mobile visual polish
-- Hebrew AI chatbot and conversation logging
-- Prompt documentation for the chatbot assignment section
-- Platform integration for the chatbot assignment section
-- MongoDB credential rotation after deployment testing
-- Hebrew AI chatbot and conversation logging
 
 ## Assignment Coverage
 
@@ -64,10 +61,10 @@ Base assignment status:
 
 Extended assignment status:
 
-- Friendly Hebrew AI support agent: not implemented yet
-- Chatbot on WhatsApp, SMS, Instagram, Facebook, or website: not implemented yet
-- Conversation logging to Excel, Google Sheets, or similar: not implemented yet
-- Prompt presentation for the chatbot: not implemented yet
+- Friendly AI support agent with Hebrew and English auto-detection: implemented
+- Chatbot on WhatsApp: implemented through Twilio WhatsApp Sandbox
+- Conversation logging to Google Sheets: implemented
+- Prompt presentation for the chatbot: implemented
 
 ## Auth Model
 
@@ -117,6 +114,25 @@ Important change:
 11. On web, the frontend opens `GET /me/toast/stream` and waits for the backend to push the toast event.
 12. On mobile, the app performs a minimal fallback check against `GET /me/toast` after 3 seconds and again 5 seconds later.
 13. The frontend displays the toast message when it becomes available.
+
+## Chatbot Flow
+
+The extended assignment chatbot is now running as a small multi-service flow:
+
+1. A customer sends a WhatsApp message to the Twilio sandbox number.
+2. Twilio posts the message to `POST /chatbot/webhooks/whatsapp` on the deployed Python API.
+3. `python-server/` normalizes the channel payload and acts as the chatbot orchestrator.
+4. The Python backend identifies the customer by phone number and/or tracking number.
+5. The Python backend loads shipment data from MongoDB `shipments`.
+6. The Python backend calls `POST /chatbot/reply` on `node-ai/`.
+7. `node-ai/` loads the chatbot prompt from `PROMPT.md`, calls OpenAI, and returns strict JSON with `reply` and `intent`.
+8. The Python backend returns the reply to Twilio and logs the exchange to Google Sheets.
+
+Language behavior:
+
+- the chatbot automatically replies in Hebrew when the user writes in Hebrew
+- the chatbot automatically replies in English when the user writes in English
+- it does not ask the user to choose a language
 
 ## Design Note
 
@@ -254,6 +270,7 @@ Current automated coverage:
 - `node-ai/`
   - health endpoint integration test
   - toast-message success and failure endpoint integration tests
+  - chatbot reply endpoint tests
   - CORS preflight and 404 tests
 - `web/`
   - auth mode switching UI test
@@ -264,6 +281,11 @@ Current automated coverage:
   - secure token persistence tests
   - refresh-on-401 auth client tests
   - rotated refresh-token persistence tests
+- `python-server/` chatbot coverage
+  - `POST /chatbot/messages`
+  - `POST /chatbot/webhooks/whatsapp`
+  - shipment lookup and orchestrator tests
+  - Google Sheets log-entry generation tests
 
 ## CI/CD
 
@@ -296,8 +318,8 @@ The project is prepared for deployment-oriented configuration:
 The next step is to continue hardening and polishing the product:
 
 1. Finish the remaining mobile visual polish
-2. Configure the WhatsApp chatbot live integration in Twilio and Azure
-3. Enable Google Sheets logging with production credentials
-4. Run a live end-to-end chatbot verification against the deployed stack
+2. Turn on Twilio signature validation with production credentials
+3. Move from Twilio Sandbox to a production WhatsApp sender if needed
+4. Run additional live chatbot verification with more edge cases
 5. Rotate the MongoDB Atlas credentials used during deployment testing
 6. Add a production-grade password reset flow

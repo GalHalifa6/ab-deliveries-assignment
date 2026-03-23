@@ -776,7 +776,7 @@ function App() {
                         value={chatInput}
                         onChange={(event) => setChatInput(event.target.value)}
                         disabled={isChatSubmitting}
-                        rows={3}
+                        rows={2}
                       />
                       <button
                         className="button button--primary chatbot-card__send"

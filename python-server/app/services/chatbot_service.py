@@ -14,7 +14,7 @@ from app.repositories.shipment_repository import shipment_repository
 from app.services import google_sheets_service
 
 
-TRACKING_NUMBER_PATTERN = re.compile(r"\bAB\d{6}\b", re.IGNORECASE)
+TRACKING_NUMBER_PATTERN = re.compile(r"\bAB\d{4}\b", re.IGNORECASE)
 logger = logging.getLogger(__name__)
 
 

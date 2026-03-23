@@ -37,7 +37,7 @@ def main() -> int:
         "channel": "local-test",
         "customerName": "גל חליפה",
         "phone": "+972501234567",
-        "trackingNumber": "AB100001",
+        "trackingNumber": "AB1001",
         "shipmentStatus": "בדרך למסירה",
         "userMessage": "בדיקת כתיבה בעברית לגוגל שיטס",
         "assistantReply": "הכתיבה בעברית הצליחה",

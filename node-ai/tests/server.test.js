@@ -140,7 +140,7 @@ test('POST /chatbot/reply echoes the incoming request id header', async () => {
         'X-Request-ID': 'test-request-id-123',
       },
       body: JSON.stringify({
-        userMessage: 'Where is AB100001?',
+        userMessage: 'Where is AB1001?',
       }),
     })
 

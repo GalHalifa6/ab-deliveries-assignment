@@ -81,6 +81,7 @@ Completed:
 - The registration toast flow now saves the user first, waits for a real OpenAI-generated toast, and avoids writing a fake fallback message
 - Production `node-ai`, `python-server`, and `web` have been redeployed with the current toast-flow fixes
 - WhatsApp chatbot flow is live through Twilio Sandbox
+- Web chatbot flow is available inside the authenticated web app
 - Chatbot conversations are logged to Google Sheets
 - Shipment lookup is backed by a real MongoDB `shipments` collection
 - The chatbot prompt is documented in `chatbot/PROMPT.md`
@@ -103,6 +104,7 @@ Extended assignment status:
 
 - Friendly AI support agent with Hebrew and English auto-detection: implemented
 - Chatbot on WhatsApp: implemented through Twilio WhatsApp Sandbox
+- Chatbot on the website: implemented through the existing React web app and Python chatbot adapter
 - Conversation logging to Google Sheets: implemented
 - Prompt presentation for the chatbot: implemented
 
@@ -159,14 +161,16 @@ Important change:
 
 The extended assignment chatbot is now running as a small multi-service flow:
 
-1. A customer sends a WhatsApp message to the Twilio sandbox number.
-2. Twilio posts the message to `POST /chatbot/webhooks/whatsapp` on the deployed Python API.
+1. A customer sends a message either from WhatsApp or from the authenticated web chat widget.
+2. The channel adapter calls the deployed Python API:
+   - WhatsApp: `POST /chatbot/webhooks/whatsapp`
+   - Web: `POST /chatbot/messages` with `channel: "web"`
 3. `python-server/` normalizes the channel payload and acts as the chatbot orchestrator.
 4. The Python backend identifies the customer by phone number and/or tracking number.
 5. The Python backend loads shipment data from MongoDB `shipments`.
 6. The Python backend calls `POST /chatbot/reply` on `node-ai/`.
 7. `node-ai/` loads the chatbot prompt from `PROMPT.md`, calls OpenAI, and returns strict JSON with `reply` and `intent`.
-8. The Python backend returns the reply to Twilio and logs the exchange to Google Sheets.
+8. The Python backend returns the reply to the calling channel and logs the exchange to Google Sheets with the appropriate channel value such as `whatsapp` or `web`.
 
 Language behavior:
 

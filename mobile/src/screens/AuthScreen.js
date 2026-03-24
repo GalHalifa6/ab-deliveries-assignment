@@ -15,7 +15,7 @@ import {
   INITIAL_SUBMIT_STATE,
 } from '../constants/auth'
 import { sendClientTelemetry } from '../services/clientTelemetry'
-import { authenticatedFetch, persistAuthResponse } from '../services/authClient'
+import { authenticatedFetch, logoutMobileSession, persistAuthResponse } from '../services/authClient'
 import { clearAuthTokens } from '../services/authStorage'
 import { buildSubmitState, getAuthFormMeta, validateAuthForm } from '../services/authForm'
 import { showMobileToast, tryFetchToastMessageWithFallback } from '../services/toastService'
@@ -30,6 +30,10 @@ export function AuthScreen() {
   const [submitState, setSubmitState] = useState(INITIAL_SUBMIT_STATE)
   const [currentUser, setCurrentUser] = useState(null)
   const [isChatOpen, setIsChatOpen] = useState(false)
+  const [authStatus, setAuthStatus] = useState({
+    state: 'signed-out',
+    message: 'Currently signed out.',
+  })
 
   const isSubmitting = submitState.status === 'loading'
   const { isRegisterMode, currentModeConfig, hasEmailValue, isSubmitDisabled } = getAuthFormMeta(
@@ -66,6 +70,13 @@ export function AuthScreen() {
     setIsChatOpen(false)
   }
 
+  const setSignedInStatus = (message) => {
+    setAuthStatus({
+      state: 'signed-in',
+      message,
+    })
+  }
+
   useEffect(() => {
     let isMounted = true
 
@@ -78,6 +89,9 @@ export function AuthScreen() {
         }
 
         setCurrentUser(data.user)
+        setSignedInStatus(
+          data.user.fullName ? `Signed in as ${data.user.fullName}.` : 'Signed in.'
+        )
       } catch {
         if (!isMounted) {
           return
@@ -143,6 +157,11 @@ export function AuthScreen() {
 
       if (data.user) {
         setCurrentUser(data.user)
+        setSignedInStatus(
+          isRegisterMode
+            ? `Registered and signed in as ${data.user.fullName || data.user.email}.`
+            : `Logged in as ${data.user.fullName || data.user.email}.`
+        )
       }
 
       if (isRegisterMode) {
@@ -173,6 +192,18 @@ export function AuthScreen() {
     }
   }
 
+  const handleLogout = async () => {
+    await logoutMobileSession()
+    setCurrentUser(null)
+    setSubmitState(INITIAL_SUBMIT_STATE)
+    setMode('login')
+    setIsChatOpen(false)
+    setAuthStatus({
+      state: 'signed-out',
+      message: 'Logged out successfully.',
+    })
+  }
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
       <View style={styles.screen}>
@@ -181,6 +212,18 @@ export function AuthScreen() {
         </View>
 
         <Text style={styles.title}>{currentModeConfig.title}</Text>
+
+        <View
+          style={[
+            styles.authStatusCard,
+            authStatus.state === 'signed-in' ? styles.authStatusCardSignedIn : null,
+          ]}
+        >
+          <Text style={styles.authStatusText}>{authStatus.message}</Text>
+          {currentUser ? (
+            <OutlineButton label="Log out" onPress={handleLogout} isCompact />
+          ) : null}
+        </View>
 
         <View style={styles.inputs}>
           {isRegisterMode ? (
@@ -298,12 +341,6 @@ export function AuthScreen() {
             onToggle={() => setIsChatOpen((current) => !current)}
             onLoginIntent={() => switchMode('login')}
             onRegisterIntent={() => switchMode('register')}
-            onLogout={() => {
-              setCurrentUser(null)
-              setSubmitState(INITIAL_SUBMIT_STATE)
-              setMode('login')
-              setIsChatOpen(false)
-            }}
           />
         </View>
       </View>
@@ -333,9 +370,30 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     ...typography.title,
   },
+  authStatusCard: {
+    width: spacing.panelWidth,
+    marginTop: 20,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: colors.infoBg,
+    borderWidth: 1,
+    borderColor: colors.divider,
+    gap: 12,
+  },
+  authStatusCardSignedIn: {
+    backgroundColor: colors.successBg,
+    borderColor: '#cae5d3',
+  },
+  authStatusText: {
+    color: colors.bodyText,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
   inputs: {
     width: spacing.panelWidth,
-    marginTop: 56,
+    marginTop: 32,
     gap: spacing.fieldGap,
     alignItems: 'flex-end',
   },

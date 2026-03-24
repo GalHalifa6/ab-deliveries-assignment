@@ -112,3 +112,22 @@ export async function persistAuthResponse(data) {
     refreshToken: data.refreshToken || null,
   })
 }
+
+export async function logoutMobileSession() {
+  const refreshToken = await getRefreshToken()
+
+  try {
+    await fetch(`${API_BASE_URL}/logout`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Client-Type': MOBILE_CLIENT_TYPE,
+      },
+      body: JSON.stringify({
+        refreshToken,
+      }),
+    })
+  } finally {
+    await clearAuthTokens()
+  }
+}

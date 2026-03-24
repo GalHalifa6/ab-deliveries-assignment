@@ -29,6 +29,10 @@ function App() {
   const [formData, setFormData] = useState(INITIAL_FORM_DATA)
   const [submitState, setSubmitState] = useState(INITIAL_SUBMIT_STATE)
   const [currentUser, setCurrentUser] = useState(null)
+  const [authStatus, setAuthStatus] = useState({
+    state: 'signed-out',
+    message: 'Currently signed out.',
+  })
   const [isChatOpen, setIsChatOpen] = useState(false)
   const [chatInput, setChatInput] = useState('')
   const [chatState, setChatState] = useState({
@@ -76,6 +80,20 @@ function App() {
   const isChatDisabled = !currentUser || !chatInput.trim() || isChatSubmitting
   const needsPhoneCompletion = Boolean(currentUser && !currentUser.phone)
 
+  const setSignedInStatus = (message) => {
+    setAuthStatus({
+      state: 'signed-in',
+      message,
+    })
+  }
+
+  const setSignedOutStatus = (message = 'Currently signed out.') => {
+    setAuthStatus({
+      state: 'signed-out',
+      message,
+    })
+  }
+
   useEffect(() => {
     if (!GOOGLE_OAUTH_CLIENT_ID || !googleButtonRef.current) {
       return undefined
@@ -115,6 +133,11 @@ function App() {
 
         setCurrentAccessToken(data.auth.accessToken)
         setCurrentUser(data.user || null)
+        setSignedInStatus(
+          data.user?.fullName
+            ? `Signed in with Google as ${data.user.fullName}.`
+            : 'Signed in with Google.'
+        )
         setPhoneCompletion({
           phone: data.user?.phone || '',
           status: 'idle',
@@ -190,6 +213,9 @@ function App() {
         }
 
         setCurrentUser(data.user)
+        setSignedInStatus(
+          data.user.fullName ? `Signed in as ${data.user.fullName}.` : 'Signed in.'
+        )
         setPhoneCompletion((current) => ({
           ...current,
           phone: data.user.phone || current.phone,
@@ -428,6 +454,13 @@ function App() {
       }
 
       setCurrentAccessToken(data.auth.accessToken)
+      if (data.user) {
+        setCurrentUser(data.user)
+        setPhoneCompletion((current) => ({
+          ...current,
+          phone: data.user.phone || current.phone,
+        }))
+      }
 
       setSubmitState({
         status: 'success',
@@ -445,6 +478,12 @@ function App() {
         setToastMessage('')
         void subscribeToToastStream()
       }
+
+      setSignedInStatus(
+        mode === 'register'
+          ? `Registered and signed in as ${payload.fullName}.`
+          : `Logged in as ${payload.email}.`
+      )
 
       setFormData((current) => currentModeConfig.resetFormData(current))
     } catch (error) {
@@ -465,6 +504,37 @@ function App() {
         status: 'error',
         message: error.message || 'Could not connect to the Python server.',
       })
+
+      if (error.message === sessionExpiredMessage) {
+        setSignedOutStatus(sessionExpiredMessage)
+      }
+    }
+  }
+
+  const handleLogout = async () => {
+    try {
+      await fetchJson('/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Client-Type': WEB_CLIENT_TYPE,
+        },
+      })
+    } finally {
+      clearAccessToken()
+      resetToastStream()
+      setCurrentUser(null)
+      setIsChatOpen(false)
+      setChatState({
+        status: 'idle',
+        message: '',
+      })
+      setPhoneCompletion({
+        phone: '',
+        status: 'idle',
+        message: '',
+      })
+      setSignedOutStatus('Logged out successfully.')
     }
   }
 
@@ -590,6 +660,19 @@ function App() {
             <header className="login-panel__header">
               <h2 className="login-panel__title">{isRegisterMode ? 'Sign up' : 'Log in'}</h2>
             </header>
+
+            <div className={`login-panel__auth-status login-panel__auth-status--${authStatus.state}`}>
+              <p className="login-panel__auth-status-text">{authStatus.message}</p>
+              {currentUser ? (
+                <button
+                  className="button button--outline login-panel__auth-status-action"
+                  type="button"
+                  onClick={handleLogout}
+                >
+                  Log out
+                </button>
+              ) : null}
+            </div>
 
             <div className="login-panel__inputs">
               {isRegisterMode ? (

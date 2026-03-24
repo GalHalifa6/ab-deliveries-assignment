@@ -449,4 +449,72 @@ describe('App auth flow', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
   })
 
+  it('shows signed-in status and allows logout', async () => {
+    fetch
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          detail: 'No refresh session.',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          message: 'Welcome back!',
+          auth: {
+            accessToken: 'login-token',
+            clientType: 'web',
+          },
+          user: {
+            fullName: 'Gal Halifa',
+            phone: '+972501234567',
+            email: 'gal@example.com',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          authenticated: true,
+          user: {
+            fullName: 'Gal Halifa',
+            phone: '+972501234567',
+            email: 'gal@example.com',
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+        }),
+      })
+
+    render(<App />)
+
+    fireEvent.change(screen.getByPlaceholderText('Email'), {
+      target: { value: 'gal@example.com' },
+    })
+    fireEvent.change(screen.getByPlaceholderText('Password'), {
+      target: { value: 'secret123' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Login' }))
+
+    expect(await screen.findByText('Logged in as gal@example.com.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Log out' }))
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('/logout'),
+        expect.objectContaining({
+          method: 'POST',
+          credentials: 'include',
+        })
+      )
+    })
+
+    expect(await screen.findByText('Logged out successfully.')).toBeInTheDocument()
+  })
+
 })

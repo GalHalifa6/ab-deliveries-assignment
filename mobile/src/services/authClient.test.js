@@ -121,4 +121,37 @@ describe('authClient', () => {
       refreshToken: null,
     })
   })
+
+  it('posts the refresh token to logout and clears local tokens', async () => {
+    tokens.accessToken = 'access-old'
+    tokens.refreshToken = 'refresh-old'
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+      }),
+    })
+
+    const { logoutMobileSession } = require('./authClient')
+
+    await logoutMobileSession()
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://example.test/logout',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'Content-Type': 'application/json',
+          'X-Client-Type': 'mobile',
+        }),
+        body: JSON.stringify({
+          refreshToken: 'refresh-old',
+        }),
+      })
+    )
+    expect(tokens).toEqual({
+      accessToken: null,
+      refreshToken: null,
+    })
+  })
 })

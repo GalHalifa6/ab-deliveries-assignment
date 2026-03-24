@@ -10,7 +10,6 @@ import {
 import { OutlineButton, PrimaryButton } from '../components/AuthButton'
 import { colors, spacing, typography } from '../constants/theme'
 import { sendMobileChatMessage } from '../services/chatbotClient'
-import { clearAuthTokens } from '../services/authStorage'
 
 const INITIAL_CHAT_STATE = {
   status: 'idle',
@@ -33,7 +32,6 @@ export function MobileChatbotScreen({
   onToggle,
   onLoginIntent,
   onRegisterIntent,
-  onLogout,
 }) {
   const [chatMessages, setChatMessages] = useState([
     {
@@ -110,12 +108,6 @@ export function MobileChatbotScreen({
     }
   }
 
-  const handleLogout = async () => {
-    await clearAuthTokens()
-    setChatState(INITIAL_CHAT_STATE)
-    onLogout()
-  }
-
   return (
     <View style={styles.dock}>
       {isOpen ? (
@@ -132,15 +124,7 @@ export function MobileChatbotScreen({
 
           {isAuthenticated ? (
             <>
-              <View style={styles.authenticatedHeader}>
-                <Text style={styles.subtitle}>{currentUser.fullName}</Text>
-                <Pressable
-                  onPress={handleLogout}
-                  style={({ pressed }) => [styles.logoutButton, pressed && styles.closeButtonPressed]}
-                >
-                  <Text style={styles.logoutLabel}>Log out</Text>
-                </Pressable>
-              </View>
+              <Text style={styles.subtitle}>{currentUser.fullName}</Text>
 
               <View style={styles.messages}>
                 {chatMessages.map((message) => (
@@ -298,29 +282,11 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '600',
   },
-  authenticatedHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 12,
-  },
   subtitle: {
     flex: 1,
     color: colors.bodyText,
     fontSize: 14,
     lineHeight: 18,
-  },
-  logoutButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 16,
-    backgroundColor: colors.infoBg,
-  },
-  logoutLabel: {
-    color: colors.primary,
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '600',
   },
   messages: {
     gap: 12,

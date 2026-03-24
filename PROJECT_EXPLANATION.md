@@ -175,6 +175,70 @@ Design:
 
 - Figma
 
+## 4.1 How To Run The Modules
+
+The project can be run module by module depending on what needs to be demonstrated.
+
+### Python backend
+
+```bash
+cd python-server
+pip install -r requirements.txt
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --env-file .env
+```
+
+### Node AI
+
+```bash
+cd node-ai
+npm install
+npm start
+```
+
+### Web
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+### Mobile
+
+```bash
+cd mobile
+npm install
+npx expo start
+```
+
+The mobile app is intended to be run through Expo during development:
+
+- scan the QR code with Expo Go
+- or run it on an emulator
+
+Important note:
+
+- unlike the web app, the mobile client is not hosted as a separate always-on Azure frontend
+- the mobile UI runs locally through Expo
+- it still connects to the same backend system
+
+### Practical local run combinations
+
+Most common combinations:
+
+- web only:
+  - run `python-server`
+  - run `node-ai`
+  - run `web`
+- mobile only:
+  - run `python-server`
+  - run `node-ai`
+  - run `mobile`
+- chatbot verification with the deployed backend:
+  - run `mobile` locally in Expo
+  - or use the live web app
+  - and point the client to the deployed Azure backend when needed
+
 ## 5. Main Runtime Components and Their Responsibilities
 
 ### 5.1 Web Client

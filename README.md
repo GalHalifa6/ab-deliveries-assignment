@@ -202,6 +202,73 @@ Language behavior:
 
 The provided Figma is login-oriented, but the same visual style is used for the required registration experience.
 
+## Run Modules Locally
+
+### Run Python Backend
+
+```bash
+cd python-server
+pip install -r requirements.txt
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --env-file .env
+```
+
+The Python API will be available at:
+
+- `http://127.0.0.1:8000`
+
+### Run Node AI
+
+```bash
+cd node-ai
+npm install
+npm start
+```
+
+The Node AI service will be available at:
+
+- `http://127.0.0.1:3001`
+
+### Run Web
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+The web app will be available at:
+
+- `http://localhost:5173`
+
+### Run Mobile With Expo
+
+```bash
+cd mobile
+npm install
+npx expo start
+```
+
+Then:
+
+- open the Expo developer tools
+- scan the QR code with `Expo Go`
+- or launch an Android/iOS emulator
+
+Important mobile note:
+
+- the mobile app is not hosted as a live website on Azure
+- the mobile UI runs locally through Expo
+- the mobile app can still talk to the deployed Azure backend
+
+### Fastest Full Local Setup
+
+Run these in separate terminals:
+
+1. `python-server`
+2. `node-ai`
+3. `web`
+4. `mobile` with Expo, only when you want to test the React Native app
+
 ## Run Web Locally
 
 ```bash
@@ -225,6 +292,10 @@ Additional local setup notes:
 
 - `mobile/` now uses `expo-secure-store` for access-token and refresh-token storage
 - after pulling the latest code, run `npm install` inside `mobile/` before starting Expo
+- Google web login requires:
+  - `python-server/.env` -> `GOOGLE_OAUTH_WEB_CLIENT_ID`
+  - `web/.env` -> `VITE_GOOGLE_CLIENT_ID`
+- mobile is currently designed to work through Expo locally rather than as a separately hosted Azure app
 
 ## Azure Deployment
 

@@ -198,6 +198,20 @@ Language behavior:
 - the chatbot automatically replies in English when the user writes in English
 - it does not ask the user to choose a language
 
+### Test The WhatsApp Chatbot
+
+To talk to the chatbot through Twilio WhatsApp Sandbox:
+
+1. Send a WhatsApp message to:
+   - `+1 415 523 8886`
+2. Join the sandbox by sending:
+   - `join closely-merely`
+3. After joining, send a normal message such as:
+   - `Where is AB1001?`
+   - `מה הסטטוס של AB1001?`
+
+This connects the phone number to the sandbox and routes the conversation into the same chatbot core used by the project.
+
 ## Design Note
 
 The provided Figma is login-oriented, but the same visual style is used for the required registration experience.

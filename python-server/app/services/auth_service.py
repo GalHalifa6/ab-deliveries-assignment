@@ -9,6 +9,7 @@ from pymongo.errors import PyMongoError, ServerSelectionTimeoutError
 from app import config
 from app.repositories.user_repository import DuplicateKeyError, user_repository
 from app.services import auth_cookies, auth_sessions
+from app.services import google_auth_service
 from app.services import token_service
 
 
@@ -65,6 +66,21 @@ def _build_user_document(payload) -> dict:
         "phone": payload.phone.strip(),
         "email": payload.email.lower(),
         "passwordHash": pwd_context.hash(payload.password),
+        "authProvider": "password",
+        "toastMessage": None,
+        "createdAt": int(time.time()),
+    }
+
+
+def _build_google_user_document(google_profile: dict) -> dict:
+    return {
+        "fullName": google_profile["fullName"],
+        "phone": "",
+        "email": google_profile["email"],
+        "passwordHash": None,
+        "authProvider": "google",
+        "googleSubject": google_profile.get("googleSubject"),
+        "avatarUrl": google_profile.get("picture"),
         "toastMessage": None,
         "createdAt": int(time.time()),
     }
@@ -142,7 +158,9 @@ def register_user(payload, background_tasks, response: Response, client_type_hin
 def login_user(payload, response: Response, client_type_hint: Optional[str]) -> dict:
     user = get_user_by_email(payload.email)
 
-    if not user or not pwd_context.verify(payload.password, user["passwordHash"]):
+    password_hash = user.get("passwordHash") if user else None
+
+    if not user or not password_hash or not pwd_context.verify(payload.password, password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password.")
 
     client_type = resolve_client_type_hint(client_type_hint)
@@ -153,6 +171,68 @@ def login_user(payload, response: Response, client_type_hint: Optional[str]) -> 
         "message": f"Welcome back, {user['fullName']}!",
         **auth_result,
         "user": build_user_response(user),
+    }
+
+
+def _sync_google_user_profile(existing_user: dict, google_profile: dict) -> dict:
+    next_name = (existing_user.get("fullName") or "").strip() or google_profile["fullName"]
+
+    user_repository.update_google_profile(
+        google_profile["email"],
+        next_name,
+        google_profile.get("picture"),
+    )
+
+    updated_user = dict(existing_user)
+    updated_user["fullName"] = next_name
+    updated_user["authProvider"] = "google"
+    if google_profile.get("picture"):
+        updated_user["avatarUrl"] = google_profile["picture"]
+    return updated_user
+
+
+def login_with_google(id_token_value: str, response: Response, client_type_hint: Optional[str]) -> dict:
+    google_profile = google_auth_service.verify_google_id_token(id_token_value)
+    user = get_user_by_email(google_profile["email"])
+
+    if user:
+        user = _sync_google_user_profile(user, google_profile)
+    else:
+        user = _build_google_user_document(google_profile)
+        _persist_new_user(user)
+
+    client_type = resolve_client_type_hint(client_type_hint)
+    auth_result = issue_auth_payload(user["email"], client_type, response)
+
+    return {
+        "success": True,
+        "message": f"Welcome, {user['fullName']}!",
+        **auth_result,
+        "user": build_user_response(user),
+    }
+
+
+def update_current_user_phone(current_user: dict, phone: str) -> dict:
+    normalized_phone = (phone or "").strip()
+
+    if not normalized_phone:
+        raise HTTPException(status_code=400, detail="Phone number is required.")
+
+    if len(normalized_phone) < 7:
+        raise HTTPException(status_code=400, detail="Phone number looks too short.")
+
+    try:
+        user_repository.update_profile_phone(current_user["email"], normalized_phone)
+    except PyMongoError as error:
+        raise HTTPException(status_code=500, detail="Database error while saving the phone number.") from error
+
+    updated_user = dict(current_user)
+    updated_user["phone"] = normalized_phone
+
+    return {
+        "success": True,
+        "message": "Phone number saved successfully.",
+        "user": build_user_response(updated_user),
     }
 
 

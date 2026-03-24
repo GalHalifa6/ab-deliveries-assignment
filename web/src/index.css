@@ -565,6 +565,69 @@ body {
   gap: 8px;
 }
 
+.login-panel__profile-completion {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: #f5f7ff;
+  border: 1px solid #d7def8;
+}
+
+.login-panel__profile-copy {
+  margin: 0;
+  font-size: 13px;
+  line-height: 19px;
+  color: #44517f;
+}
+
+.google-auth {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.google-auth__shell {
+  position: relative;
+  width: 175px;
+  min-height: 48px;
+}
+
+.google-auth__shell--disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.google-auth__visual {
+  width: 100%;
+  pointer-events: none;
+}
+
+.google-auth__button-shell {
+  position: absolute;
+  inset: 0;
+  min-height: 48px;
+  opacity: 0.01;
+  overflow: hidden;
+}
+
+.google-auth__message {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.google-auth__message--muted {
+  color: #69779f;
+}
+
+.google-auth__message--loading {
+  color: #3949ab;
+}
+
 .login-panel__signup {
   width: 100%;
   display: flex;
@@ -871,6 +934,10 @@ body {
   }
 
   .button--half {
+    width: 100%;
+  }
+
+  .google-auth__shell {
     width: 100%;
   }
 

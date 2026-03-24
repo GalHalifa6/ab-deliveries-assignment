@@ -29,6 +29,27 @@ class FakeUserRepository:
         document["toastMessage"] = toast_message
         return SimpleNamespace(matched_count=1, modified_count=1)
 
+    def update_google_profile(self, email, full_name, picture=None):
+        document = self.documents.get(email.lower())
+
+        if not document:
+            return SimpleNamespace(matched_count=0, modified_count=0)
+
+        document["fullName"] = full_name
+        document["authProvider"] = "google"
+        if picture:
+            document["avatarUrl"] = picture
+        return SimpleNamespace(matched_count=1, modified_count=1)
+
+    def update_profile_phone(self, email, phone):
+        document = self.documents.get(email.lower())
+
+        if not document:
+            return SimpleNamespace(matched_count=0, modified_count=0)
+
+        document["phone"] = phone
+        return SimpleNamespace(matched_count=1, modified_count=1)
+
 
 class FakeRefreshSessionRepository:
     def __init__(self):
@@ -92,6 +113,7 @@ class PythonServerApiIntegrationTests(unittest.TestCase):
         self.original_toast_user_repository = toast_service.user_repository
         self.original_fetch_toast_message = toast_service.fetch_toast_message
         self.original_handle_incoming_whatsapp_message = whatsapp_service.handle_incoming_whatsapp_message
+        self.original_google_verify = auth_service.google_auth_service.verify_google_id_token
 
         auth_service.user_repository = self.fake_user_repository
         auth_service.refresh_session_repository = self.fake_refresh_session_repository
@@ -123,6 +145,12 @@ class PythonServerApiIntegrationTests(unittest.TestCase):
         }
         toast_service.user_repository = self.fake_user_repository
         toast_service.fetch_toast_message = lambda: "Test toast message"
+        auth_service.google_auth_service.verify_google_id_token = lambda token: {
+            "email": "google@example.com",
+            "fullName": "Google User",
+            "googleSubject": "google-sub-123",
+            "picture": "https://example.com/avatar.png",
+        }
 
         self.client = TestClient(main.app)
 
@@ -133,6 +161,7 @@ class PythonServerApiIntegrationTests(unittest.TestCase):
         whatsapp_service.handle_incoming_whatsapp_message = self.original_handle_incoming_whatsapp_message
         toast_service.user_repository = self.original_toast_user_repository
         toast_service.fetch_toast_message = self.original_fetch_toast_message
+        auth_service.google_auth_service.verify_google_id_token = self.original_google_verify
 
     def create_user(self, email="gal@example.com", password="welcome123", full_name="Gal Halifa"):
         self.fake_user_repository.documents[email] = {
@@ -349,6 +378,75 @@ class PythonServerApiIntegrationTests(unittest.TestCase):
         self.assertEqual(response.json()["auth"]["clientType"], "web")
         self.assertIn("accessToken", response.json()["auth"])
         self.assertIn(config.REFRESH_COOKIE_NAME, response.cookies)
+
+    def test_google_login_creates_a_new_web_user_and_sets_cookie_auth(self):
+        response = self.client.post(
+            "/login/google",
+            json={"idToken": "google-id-token"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertTrue(body["success"])
+        self.assertEqual(body["user"]["email"], "google@example.com")
+        self.assertEqual(body["user"]["fullName"], "Google User")
+        self.assertEqual(body["auth"]["clientType"], "web")
+        self.assertIn(config.REFRESH_COOKIE_NAME, response.cookies)
+
+        stored_user = self.fake_user_repository.documents["google@example.com"]
+        self.assertEqual(stored_user["authProvider"], "google")
+        self.assertEqual(stored_user["phone"], "")
+        self.assertIsNone(stored_user["passwordHash"])
+
+    def test_google_login_reuses_existing_user_for_mobile(self):
+        self.fake_user_repository.documents["google@example.com"] = {
+            "fullName": "",
+            "phone": "",
+            "email": "google@example.com",
+            "passwordHash": None,
+            "authProvider": "google",
+            "toastMessage": None,
+            "createdAt": 1,
+        }
+
+        response = self.client.post(
+            "/login/google",
+            headers={"X-Client-Type": "mobile"},
+            json={"idToken": "google-id-token"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()
+        self.assertEqual(body["auth"]["clientType"], "mobile")
+        self.assertIn("refreshToken", body)
+        self.assertEqual(body["user"]["fullName"], "Google User")
+
+    def test_update_my_profile_saves_phone_for_authenticated_user(self):
+        self.fake_user_repository.documents["google@example.com"] = {
+            "fullName": "Google User",
+            "phone": "",
+            "email": "google@example.com",
+            "passwordHash": None,
+            "authProvider": "google",
+            "toastMessage": None,
+            "createdAt": 1,
+        }
+
+        login_response = self.client.post(
+            "/login/google",
+            json={"idToken": "google-id-token"},
+        )
+        access_token = login_response.json()["auth"]["accessToken"]
+
+        response = self.client.patch(
+            "/me/profile",
+            headers={"Authorization": f"Bearer {access_token}"},
+            json={"phone": "+972501234567"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["user"]["phone"], "+972501234567")
+        self.assertEqual(self.fake_user_repository.documents["google@example.com"]["phone"], "+972501234567")
 
     def test_login_rejects_invalid_password(self):
         self.create_user(password="correct-password")

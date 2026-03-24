@@ -448,4 +448,5 @@ describe('App auth flow', () => {
     expect(screen.queryByRole('button', { name: 'Send message' })).not.toBeInTheDocument()
     expect(fetch).toHaveBeenCalledTimes(1)
   })
+
 })

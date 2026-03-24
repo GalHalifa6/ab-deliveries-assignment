@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import illustrationImage from './assets/71b1ce93ba00a27b8ef291cb449e0a6ea47d2ba9.png'
 import {
   AUTH_MODE_CONFIG,
+  GOOGLE_OAUTH_CLIENT_ID,
   INITIAL_CHAT_MESSAGES,
   INITIAL_FORM_DATA,
   INITIAL_SUBMIT_STATE,
@@ -9,6 +10,7 @@ import {
 } from './constants/auth'
 import {
   EmailIcon,
+  GoogleIdentityButton,
   PasswordField,
   PersonIcon,
   PhoneIcon,
@@ -18,6 +20,7 @@ import {
 import { ChatbotWidget } from './components/ChatbotWidget'
 import { useAuthToastSession } from './hooks/useAuthToastSession'
 import { sendClientTelemetry } from './services/clientTelemetry'
+import { GOOGLE_SCRIPT_UNAVAILABLE, renderGoogleButton } from './services/googleAuth'
 
 function App() {
   const [mode, setMode] = useState('login')
@@ -32,7 +35,17 @@ function App() {
     status: 'idle',
     message: '',
   })
+  const [phoneCompletion, setPhoneCompletion] = useState({
+    phone: '',
+    status: 'idle',
+    message: '',
+  })
   const [chatMessages, setChatMessages] = useState(INITIAL_CHAT_MESSAGES)
+  const [googleAuthState, setGoogleAuthState] = useState({
+    status: GOOGLE_OAUTH_CLIENT_ID ? 'loading' : 'unavailable',
+    message: GOOGLE_OAUTH_CLIENT_ID ? '' : GOOGLE_SCRIPT_UNAVAILABLE,
+  })
+  const googleButtonRef = useRef(null)
   const {
     accessToken,
     clearAccessToken,
@@ -61,6 +74,100 @@ function App() {
   const isSubmitDisabled = isSubmitting || (isRegisterMode ? !isRegisterFormValid : !isLoginFormValid)
   const isChatSubmitting = chatState.status === 'loading'
   const isChatDisabled = !currentUser || !chatInput.trim() || isChatSubmitting
+  const needsPhoneCompletion = Boolean(currentUser && !currentUser.phone)
+
+  useEffect(() => {
+    if (!GOOGLE_OAUTH_CLIENT_ID || !googleButtonRef.current) {
+      return undefined
+    }
+
+    let isActive = true
+
+    const handleGoogleCredential = async ({ credential }) => {
+      if (!credential) {
+        setSubmitState({
+          status: 'error',
+          message: 'Google sign-in did not return a credential.',
+        })
+        return
+      }
+
+      setSubmitState({
+        status: 'loading',
+        message: 'Signing you in with Google...',
+      })
+
+      try {
+        const { response, data } = await fetchJson('/login/google', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client-Type': WEB_CLIENT_TYPE,
+          },
+          body: JSON.stringify({
+            idToken: credential,
+          }),
+        })
+
+        if (!response.ok || !data.auth?.accessToken) {
+          throw new Error(data.detail || 'Google sign-in failed.')
+        }
+
+        setCurrentAccessToken(data.auth.accessToken)
+        setCurrentUser(data.user || null)
+        setPhoneCompletion({
+          phone: data.user?.phone || '',
+          status: 'idle',
+          message: '',
+        })
+        setSubmitState({
+          status: 'success',
+          message: data.message || 'Signed in with Google successfully.',
+        })
+        sendClientTelemetry({
+          event: 'auth_submit_succeeded',
+          mode: 'google',
+          endpoint: '/login/google',
+          email: data.user?.email,
+          success: true,
+        })
+      } catch (error) {
+        setSubmitState({
+          status: 'error',
+          message: error.message || 'Google sign-in failed.',
+        })
+        sendClientTelemetry({
+          event: 'auth_submit_failed',
+          mode: 'google',
+          endpoint: '/login/google',
+          success: false,
+          detail: error.message || 'Google sign-in failed.',
+        })
+      }
+    }
+
+    renderGoogleButton(googleButtonRef.current, GOOGLE_OAUTH_CLIENT_ID, handleGoogleCredential)
+      .then(() => {
+        if (isActive) {
+          setGoogleAuthState({
+            status: 'ready',
+            message: '',
+          })
+        }
+      })
+      .catch((error) => {
+        if (isActive) {
+          setGoogleAuthState({
+            status: 'error',
+            message: error.message,
+          })
+        }
+      })
+
+    return () => {
+      isActive = false
+    }
+  }, [])
 
   useEffect(() => {
     if (!accessToken) {
@@ -83,6 +190,10 @@ function App() {
         }
 
         setCurrentUser(data.user)
+        setPhoneCompletion((current) => ({
+          ...current,
+          phone: data.user.phone || current.phone,
+        }))
       } catch {
         if (isActive) {
           setCurrentUser(null)
@@ -202,6 +313,58 @@ function App() {
         success: false,
         detail: error.message || 'The delivery assistant is unavailable right now.',
       })
+    }
+  }
+
+  const handlePhoneCompletionSubmit = async () => {
+    const nextPhone = phoneCompletion.phone.trim()
+
+    if (!nextPhone) {
+      setPhoneCompletion((current) => ({
+        ...current,
+        status: 'error',
+        message: 'Phone number is required to use the chatbot.',
+      }))
+      return
+    }
+
+    setPhoneCompletion((current) => ({
+      ...current,
+      status: 'loading',
+      message: 'Saving your phone number...',
+    }))
+
+    try {
+      const { response, data } = await fetchJson(
+        '/me/profile',
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            phone: nextPhone,
+          }),
+        },
+        { requiresAuth: true }
+      )
+
+      if (!response.ok || !data.user) {
+        throw new Error(data.detail || 'Could not save your phone number.')
+      }
+
+      setCurrentUser(data.user)
+      setPhoneCompletion({
+        phone: data.user.phone,
+        status: 'success',
+        message: data.message || 'Phone number saved successfully.',
+      })
+    } catch (error) {
+      setPhoneCompletion((current) => ({
+        ...current,
+        status: 'error',
+        message: error.message || 'Could not save your phone number.',
+      }))
     }
   }
 
@@ -508,6 +671,42 @@ function App() {
                 </p>
               ) : null}
 
+              {needsPhoneCompletion ? (
+                <div className="login-panel__profile-completion">
+                  <p className="login-panel__profile-copy">
+                    Google sign-in worked. Add your phone number to continue using the chatbot.
+                  </p>
+                  <TextField
+                    ariaLabel="Google account phone number"
+                    icon={<PhoneIcon />}
+                    type="tel"
+                    name="googlePhone"
+                    placeholder="Phone number"
+                    value={phoneCompletion.phone}
+                    onChange={(event) =>
+                      setPhoneCompletion((current) => ({
+                        ...current,
+                        phone: event.target.value,
+                      }))
+                    }
+                    disabled={phoneCompletion.status === 'loading'}
+                  />
+                  <button
+                    className="button button--primary"
+                    type="button"
+                    onClick={handlePhoneCompletionSubmit}
+                    disabled={phoneCompletion.status === 'loading'}
+                  >
+                    {phoneCompletion.status === 'loading' ? 'Saving phone...' : 'Save phone number'}
+                  </button>
+                  {phoneCompletion.status !== 'idle' ? (
+                    <p className={`login-panel__message login-panel__message--${phoneCompletion.status}`}>
+                      {phoneCompletion.message}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
               <div className="login-panel__divider" aria-hidden="true">
                 <span className="login-panel__divider-line" />
                 <span className="login-panel__divider-text">Or</span>
@@ -515,14 +714,13 @@ function App() {
               </div>
 
               <div className="login-panel__socials">
-                <SocialAuthButton disabled={isSubmitting} label="Google">
-                  <svg viewBox="0 0 18 18" fill="none">
-                    <path d="M3.08 9.11L2.54 11.11L0.58 11.15C0.2 10.04 0 8.84 0 7.5C0 6.2 0.19 5.02 0.55 3.94L2.3 4.26L3.07 5.99C2.91 6.46 2.82 6.97 2.82 7.5C2.82 8.08 2.92 8.62 3.08 9.11Z" fill="#FBBB00" />
-                    <path d="M17.3 6.11C17.42 6.58 17.49 7.08 17.49 7.5C17.49 8 17.44 8.49 17.33 8.97C16.95 10.66 15.98 12.13 14.61 13.18L12.38 13.07L12.06 11.08C12.97 10.55 13.68 9.76 14.03 8.97H9.23V6.11H14.1H17.3Z" fill="#518EF8" />
-                    <path d="M14.61 13.18L14.61 13.18C13.38 14.17 11.84 14.76 10.14 14.76C7.36 14.76 4.95 13.21 3.73 11.15L6.65 8.99C7.24 10.58 8.75 11.72 10.53 11.72C11.3 11.72 12.03 11.52 12.63 11.08L14.61 13.18Z" fill="#28B446" />
-                    <path d="M14.73 2.18L11.81 4.33C11.19 3.87 10.43 3.61 9.61 3.61C7.8 3.61 6.26 4.79 5.69 6.43L2.78 4.28H2.77C4 1.97 6.48 0.36 9.39 0.36C11.2 0.36 12.85 0.99 14.73 2.18Z" fill="#F14336" />
-                  </svg>
-                </SocialAuthButton>
+                <GoogleIdentityButton
+                  buttonRef={googleButtonRef}
+                  isLoading={googleAuthState.status === 'loading'}
+                  isDisabled={isSubmitting}
+                  isAvailable={googleAuthState.status !== 'unavailable' && googleAuthState.status !== 'error'}
+                  message={googleAuthState.message}
+                />
 
                 <SocialAuthButton disabled={isSubmitting} label="Facebook">
                   <svg viewBox="0 0 24 24" fill="none">

@@ -331,6 +331,33 @@ Current automated coverage:
   - shipment lookup and orchestrator tests
   - Google Sheets log-entry generation tests
 
+## Testing Strategy
+
+The testing approach is intentionally split into two layers:
+
+- Unit tests
+  - validate small extracted modules in isolation
+  - examples:
+    - web chatbot widget rendering and disabled states
+    - mobile auth-form validation and toast helper behavior
+    - Node AI prompt parsing and prompt assembly
+    - Python auth cookie helpers, refresh-session helpers, and HTTP observability middleware
+- Integration tests
+  - verify the important runtime flows across real module boundaries
+  - examples:
+    - Python register/login/refresh/logout flows
+    - protected endpoint access
+    - WhatsApp webhook handling
+    - chatbot orchestration endpoints
+    - Node AI HTTP endpoints
+    - web auth and toast-stream UI flows
+
+Why this matters:
+
+- unit tests make refactoring safer by protecting internal behavior
+- integration tests prove the actual user-facing flows still work end to end
+- together they show both maintainability and product confidence, which is more valuable than only testing happy-path screens
+
 ## CI/CD
 
 GitHub Actions is configured in:

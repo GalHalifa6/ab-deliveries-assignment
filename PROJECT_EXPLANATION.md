@@ -735,7 +735,91 @@ Mobile:
 - rotated token persistence
 - token cleanup on refresh failure
 
-## 17. What Was Improved Beyond the Basic Assignment
+## 17. Testing Strategy
+
+The testing strategy is designed to show both engineering discipline and product reliability.
+
+### 17.1 Two-layer approach
+
+The project uses a deliberate mix of:
+
+- unit tests
+  - focused on small modules and helpers
+  - protect internal logic during refactoring
+- integration tests
+  - focused on real HTTP flows, user journeys, and service boundaries
+  - prove the system still behaves correctly as a whole
+
+This is important because the codebase is split across several layers:
+
+- web
+- mobile
+- python-server
+- node-ai
+
+Each layer benefits from isolated tests, but the assignment is only convincing when the main business flows are also verified end to end.
+
+### 17.2 What unit tests are used for
+
+Unit tests are used where the code was intentionally extracted into smaller, reusable modules.
+
+Examples:
+
+- web
+  - chatbot widget rendering and interaction states
+- mobile
+  - auth form validation
+  - toast fallback behavior
+- node-ai
+  - prompt loading
+  - prompt assembly
+  - structured chatbot response parsing
+- python-server
+  - auth cookie helpers
+  - refresh-session helpers
+  - HTTP observability middleware
+  - chatbot helper logic
+
+These tests help ensure that internal refactors improve structure without silently breaking behavior.
+
+### 17.3 What integration tests are used for
+
+Integration tests are used for the flows that matter most from the interviewer’s point of view.
+
+Examples:
+
+- registration and login
+- refresh token rotation
+- logout and logout-all
+- protected user endpoints
+- SSE-based toast delivery flow
+- mobile authenticated API behavior
+- Node AI HTTP endpoints
+- chatbot message endpoint
+- WhatsApp webhook endpoint
+
+These tests demonstrate that the application works across real boundaries such as:
+
+- route -> service
+- service -> repository
+- service -> external adapter
+- frontend -> backend
+
+### 17.4 Why this testing strategy is strong
+
+This approach was chosen because it gives better evidence than only one style of testing:
+
+- only unit tests would miss real runtime integration issues
+- only end-to-end style tests would make refactoring harder and debugging slower
+
+By combining both, the project shows:
+
+- maintainability
+- confidence during refactoring
+- protection of critical product flows
+- better separation of concerns in both code and test design
+
+## 18. What Was Improved Beyond the Basic Assignment
 
 In addition to the base assignment, the project now includes:
 
@@ -750,7 +834,7 @@ In addition to the base assignment, the project now includes:
 
 These changes make the project much closer to a production-style implementation instead of only a UI or demo solution.
 
-## 18. Current Status
+## 19. Current Status
 
 The project is basically complete for the assignment.
 
@@ -774,7 +858,7 @@ Automated deployment:
 
 - done
 
-## 19. Remaining Optional Hardening Work
+## 20. Remaining Optional Hardening Work
 
 These are useful future improvements, but they are not blockers for the assignment:
 
@@ -785,7 +869,7 @@ These are useful future improvements, but they are not blockers for the assignme
 - add a password reset flow
 - improve cross-layer correlation even further
 
-## 20. Summary
+## 21. Summary
 
 This project delivers the requested assignment as a full working multi-service system.
 

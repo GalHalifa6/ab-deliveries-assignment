@@ -2,6 +2,7 @@ node_modules/
 mobile/node_modules/
 mobile/.expo/
 mobile/package-lock.json
+web/.vite/
 __pycache__/
 *.pyc
 .env

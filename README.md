@@ -66,6 +66,8 @@ Completed:
 - JWT access-token auth with refresh-session control is implemented end to end
 - Web auth now uses an in-memory access token, `HttpOnly` refresh cookie, and short-lived SSE stream cookie
 - Mobile auth now uses access + refresh tokens stored in Expo Secure Store
+- Web login also supports Google OAuth with backend ID-token verification
+- Google-authenticated users are prompted to save a phone number before using chat
 - Private user data now loads through authenticated endpoints instead of email query params
 - Web toast delivery now uses Server-Sent Events instead of repeated polling
 - Mobile toast delivery now uses a low-noise fallback check instead of aggressive polling
@@ -82,6 +84,7 @@ Completed:
 - Production `node-ai`, `python-server`, and `web` have been redeployed with the current toast-flow fixes
 - WhatsApp chatbot flow is live through Twilio Sandbox
 - Web chatbot flow is available inside the authenticated web app
+- Mobile chatbot flow is available inside the Expo app and uses the same chatbot core
 - Chatbot conversations are logged to Google Sheets
 - Shipment lookup is backed by a real MongoDB `shipments` collection
 - The chatbot prompt is documented in `chatbot/PROMPT.md`
@@ -129,11 +132,29 @@ Protected API endpoints:
 
 - `GET /me`
 - `GET /me/toast`
+- `PATCH /me/profile`
 - `POST /refresh`
 - `GET /me/toast/stream`
 - `POST /logout`
 - `POST /logout-all`
 - `POST /me/toast/stream-session`
+
+Primary auth endpoints:
+
+- `POST /register`
+- `POST /login`
+- `POST /login/google`
+- `POST /refresh`
+- `POST /logout`
+- `POST /logout-all`
+- `GET /me`
+- `PATCH /me/profile`
+
+Primary chatbot endpoints:
+
+- `POST /chatbot/messages`
+- `POST /chatbot/webhooks/whatsapp`
+- `POST /chatbot/reply` on `node-ai`
 
 Important change:
 
@@ -165,6 +186,7 @@ The extended assignment chatbot is now running as a small multi-service flow:
 2. The channel adapter calls the deployed Python API:
    - WhatsApp: `POST /chatbot/webhooks/whatsapp`
    - Web: `POST /chatbot/messages` with `channel: "web"`
+   - Mobile: `POST /chatbot/messages` with `channel: "mobile"`
 3. `python-server/` normalizes the channel payload and acts as the chatbot orchestrator.
 4. The Python backend identifies the customer by phone number and/or tracking number.
 5. The Python backend loads shipment data from MongoDB `shipments`.
@@ -225,6 +247,9 @@ Deployment notes:
 - Web refresh and stream cookies are enabled over HTTPS in Azure
 - `node-ai` calls OpenAI using the `OPENAI_API_KEY` configured in Azure
 - `OPENAI_MODEL` is currently set to `gpt-5-mini`
+- deployed Google login also needs:
+  - `GOOGLE_OAUTH_WEB_CLIENT_ID` on `ab-python-server`
+  - `VITE_GOOGLE_CLIENT_ID` provided during the `web` build
 
 For the deployment walkthrough and troubleshooting notes, see:
 
@@ -321,10 +346,12 @@ Current automated coverage:
   - register validation UI test
   - successful authenticated register + toast SSE UI test
   - toast recovery tests for delayed backend generation
+  - Google sign-in and logout status behavior
 - `mobile/`
   - secure token persistence tests
   - refresh-on-401 auth client tests
   - rotated refresh-token persistence tests
+  - logout client behavior tests
 - `python-server/` chatbot coverage
   - `POST /chatbot/messages`
   - `POST /chatbot/webhooks/whatsapp`

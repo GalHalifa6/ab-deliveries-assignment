@@ -663,15 +663,6 @@ function App() {
 
             <div className={`login-panel__auth-status login-panel__auth-status--${authStatus.state}`}>
               <p className="login-panel__auth-status-text">{authStatus.message}</p>
-              {currentUser ? (
-                <button
-                  className="button button--outline login-panel__auth-status-action"
-                  type="button"
-                  onClick={handleLogout}
-                >
-                  Log out
-                </button>
-              ) : null}
             </div>
 
             <div className="login-panel__inputs">
@@ -856,6 +847,15 @@ function App() {
                 stateMessage={chatState.message}
                 stateStatus={chatState.status}
               />
+              {currentUser ? (
+                <button
+                  className="button button--outline chatbot-logout"
+                  type="button"
+                  onClick={handleLogout}
+                >
+                  Log out
+                </button>
+              ) : null}
             </div>
           </form>
         </div>

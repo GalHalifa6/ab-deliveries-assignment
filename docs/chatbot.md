@@ -25,6 +25,7 @@ The repository already includes a working end-to-end chatbot flow:
 
 - Twilio WhatsApp Sandbox is the first live channel adapter
 - the authenticated React web app is the second live channel adapter
+- the authenticated Expo mobile app is the third live channel adapter
 - `python-server/` exposes:
   - `POST /chatbot/messages`
   - `POST /chatbot/webhooks/whatsapp`
@@ -187,6 +188,19 @@ The authenticated React client sends:
 
 This means the website chat widget reuses the same orchestrator, shipment lookup, AI service, and Google Sheets log as WhatsApp.
 
+### 1.2 Mobile Channel
+
+The mobile app uses the same generic Python adapter endpoint:
+
+- `POST /chatbot/messages`
+
+The Expo client sends:
+
+- `channel: "mobile"`
+- the authenticated user full name
+- the authenticated user phone number
+- the user message text
+
 ### 2. Python Backend
 
 This should become both:
@@ -276,6 +290,7 @@ This is the recommended runtime flow for the current live channel adapters: What
 2. The channel adapter sends the request to Python:
    - WhatsApp: `POST /chatbot/webhooks/whatsapp`
    - Web: `POST /chatbot/messages`
+   - Mobile: `POST /chatbot/messages`
 3. The adapter extracts or forwards:
    - sender phone number
    - message text
@@ -574,6 +589,13 @@ The current implementation is environment-driven so the same code can run:
 - in Azure with Google Sheets enabled
 - in Twilio sandbox or production WhatsApp mode
 - in Hebrew or English without changing deployment configuration
+
+Google web login runtime/build configuration:
+
+- backend runtime:
+  - `GOOGLE_OAUTH_WEB_CLIENT_ID`
+- frontend build-time:
+  - `VITE_GOOGLE_CLIENT_ID`
 
 ### Python Server Environment Variables
 

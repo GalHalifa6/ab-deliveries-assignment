@@ -39,14 +39,17 @@ Main components:
 - `web/`
   - React web client
   - registration/login UI
+  - Google sign-in
   - authenticated browser behavior
   - SSE-based toast delivery
+  - auth-gated web chatbot launcher
 
 - `mobile/`
   - React Native / Expo mobile client
   - registration/login UI
   - secure token storage
   - refresh-aware authenticated requests
+  - auth-gated mobile chatbot launcher
 
 - `python-server/`
   - main backend API
@@ -162,7 +165,9 @@ Design:
 The web client is responsible for:
 
 - rendering the registration and login UI
+- supporting email/password auth plus Google sign-in
 - sending login/register requests to the Python API
+- sending Google ID tokens to `POST /login/google`
 - storing the access token in memory only
 - relying on an `HttpOnly` refresh cookie for session continuation
 - opening an authenticated SSE stream to receive the toast message after registration
@@ -186,6 +191,7 @@ The mobile client is responsible for:
 - automatically refreshing the session on `401`
 - polling for the toast message in a low-noise fallback flow after registration
 - sending lightweight operational telemetry events to the backend
+- exposing the same authenticated chat-entry pattern as the web app
 
 Important files:
 
@@ -203,6 +209,7 @@ It is responsible for:
 - user registration and login
 - password hashing and verification
 - issuing access tokens
+- verifying Google ID tokens before issuing local app auth
 - creating and rotating refresh sessions
 - storing users in MongoDB
 - saving and loading toast message state
@@ -450,6 +457,11 @@ Flow:
 
 Because access tokens are short-lived JWTs, revocation mainly affects refresh ability. Existing access tokens continue until they expire unless stricter session checks are enabled.
 
+Additional auth endpoints now in use:
+
+- `POST /login/google`
+- `PATCH /me/profile`
+
 ## 9. Toast Message Flow
 
 After registration:
@@ -488,6 +500,7 @@ Current channel:
 
 - WhatsApp through Twilio Sandbox
 - authenticated web chat through the React web client
+- authenticated mobile chat through the Expo client
 
 Future possible channels:
 
@@ -547,6 +560,7 @@ The current chatbot flow works like this:
 2. The channel adapter sends the request to Python:
    - WhatsApp: `POST /chatbot/webhooks/whatsapp`
    - Web: `POST /chatbot/messages`
+   - Mobile: `POST /chatbot/messages`
 3. Python normalizes the inbound channel payload.
 4. Python identifies the user by:
    - sender phone
@@ -695,6 +709,12 @@ Azure services used:
 - Azure Container Registry
 - Azure Container Apps
 - Azure Log Analytics
+
+Google web auth in Azure also depends on:
+
+- `GOOGLE_OAUTH_WEB_CLIENT_ID` configured on `ab-python-server`
+- `VITE_GOOGLE_CLIENT_ID` being passed during the `web` image build
+- the live web origin being added to Google OAuth authorized JavaScript origins
 
 ## 16. Testing Coverage
 

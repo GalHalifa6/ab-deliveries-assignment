@@ -283,8 +283,7 @@ body {
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
   padding: 12px 14px;
   border-radius: 16px;
   border: 1px solid #d7def8;
@@ -302,12 +301,6 @@ body {
   font-size: 13px;
   line-height: 18px;
   color: #40507b;
-}
-
-.login-panel__auth-status-action {
-  width: auto;
-  min-width: 96px;
-  padding: 0 18px;
 }
 
 .login-panel__helper {
@@ -682,6 +675,17 @@ body {
   gap: 14px;
 }
 
+.chatbot-logout {
+  width: auto;
+  min-width: 110px;
+  height: 34px;
+  align-self: center;
+  padding: 0 16px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 14px;
+}
+
 .chatbot-launcher {
   width: 100%;
   min-height: 48px;
@@ -979,15 +983,6 @@ body {
   }
 
   .chatbot-launcher {
-    width: 100%;
-  }
-
-  .login-panel__auth-status {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .login-panel__auth-status-action {
     width: 100%;
   }
 

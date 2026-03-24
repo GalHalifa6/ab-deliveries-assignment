@@ -13,6 +13,7 @@ The implementation includes:
 - a second Node.js service that generates a welcome toast message through OpenAI
 - a second Node.js service that also powers the chatbot reply generation
 - Azure deployment for the production stack
+- Google OAuth login on the web client with backend verification
 
 ## Client Security Model
 
@@ -112,10 +113,12 @@ Current endpoints:
 - `GET /health`
 - `POST /register`
 - `POST /login`
+- `POST /login/google`
 - `POST /refresh`
 - `POST /logout`
 - `POST /logout-all`
 - `GET /me`
+- `PATCH /me/profile`
 - `GET /me/toast`
 - `POST /me/toast/stream-session`
 - `GET /me/toast/stream`
@@ -222,6 +225,7 @@ The current architecture goal is:
 The extended chatbot assignment is now implemented with:
 
 - Twilio WhatsApp Sandbox as the first live channel
+- the Expo mobile app as another client channel through `channel: "mobile"`
 - `python-server/` as the channel adapter and chatbot orchestrator
 - MongoDB `shipments` as the package-status source
 - `node-ai/` as the OpenAI-backed reply service

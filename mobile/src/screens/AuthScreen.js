@@ -220,9 +220,6 @@ export function AuthScreen() {
           ]}
         >
           <Text style={styles.authStatusText}>{authStatus.message}</Text>
-          {currentUser ? (
-            <OutlineButton label="Log out" onPress={handleLogout} isCompact />
-          ) : null}
         </View>
 
         <View style={styles.inputs}>
@@ -342,6 +339,9 @@ export function AuthScreen() {
             onLoginIntent={() => switchMode('login')}
             onRegisterIntent={() => switchMode('register')}
           />
+          {currentUser ? (
+            <OutlineButton label="Log out" onPress={handleLogout} isCompact />
+          ) : null}
         </View>
       </View>
     </ScrollView>

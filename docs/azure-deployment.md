@@ -47,6 +47,7 @@ The deployed stack uses:
 Private user data now loads from:
 
 - `GET /me`
+- `PATCH /me/profile`
 - `GET /me/toast`
 - `GET /me/toast/stream`
 - `POST /refresh`
@@ -69,6 +70,23 @@ The old email-query-based private fetch flow should not be used in production.
 7. `web` silently restores access with `POST /refresh` when needed and uses `POST /me/toast/stream-session` to obtain a short-lived stream cookie for SSE.
 8. `web` opens a single authenticated SSE request to `GET /me/toast/stream` and waits for the toast event.
 9. `mobile` refreshes tokens when needed and performs two low-noise fallback checks against `GET /me/toast` after registration.
+
+## Google Web Login In Production
+
+The deployed Google sign-in flow needs:
+
+1. a Google OAuth client with allowed origins:
+   - `http://localhost:5173`
+   - `https://ab-web.salmonmoss-0b293592.northeurope.azurecontainerapps.io`
+2. Python runtime env:
+   - `GOOGLE_OAUTH_WEB_CLIENT_ID`
+3. web build-time env:
+   - `VITE_GOOGLE_CLIENT_ID`
+
+Important:
+
+- `VITE_GOOGLE_CLIENT_ID` must be available during the Docker build, not only as a runtime Container App variable
+- the GitHub deploy workflow now passes it into the `web` image build from a GitHub Actions secret
 
 ## Deployment Sequence Used
 
@@ -195,6 +213,11 @@ Chatbot-related Azure settings:
 - `TWILIO_WHATSAPP_NUMBER`
 - `TWILIO_VALIDATE_SIGNATURE`
 - `TWILIO_WHATSAPP_WEBHOOK_URL`
+
+Google auth Azure/GitHub settings:
+
+- `GOOGLE_OAUTH_WEB_CLIENT_ID` on `ab-python-server`
+- `VITE_GOOGLE_CLIENT_ID` as a GitHub Actions secret for the `web` build
 
 Recommended notes:
 

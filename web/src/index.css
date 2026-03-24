@@ -712,6 +712,22 @@ body {
   line-height: 16px;
 }
 
+.chatbot-card__gate {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.chatbot-card__gate-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.chatbot-card__gate-button {
+  width: 100%;
+}
+
 .chatbot-card__messages {
   display: flex;
   flex-direction: column;
@@ -869,6 +885,10 @@ body {
   }
 
   .chatbot-card__profile {
+      grid-template-columns: 1fr;
+    }
+
+  .chatbot-card__gate-actions {
     grid-template-columns: 1fr;
   }
 

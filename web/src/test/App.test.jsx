@@ -423,7 +423,7 @@ describe('App auth flow', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Toast after reconnect')
   }, 10000)
 
-  it('sends web chatbot messages through the shared chatbot endpoint without requiring login', async () => {
+  it('keeps the chatbot visible but gated until the user signs in', async () => {
     fetch
       .mockResolvedValueOnce({
         ok: false,
@@ -444,40 +444,8 @@ describe('App auth flow', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Chat with us' }))
 
-    fireEvent.change(screen.getByPlaceholderText('Your name'), {
-      target: { value: 'Gal Halifa' },
-    })
-    fireEvent.change(screen.getByPlaceholderText('Contact phone'), {
-      target: { value: '+972501234567' },
-    })
-
-    expect(
-      await screen.findByPlaceholderText('Ask about a shipment or paste a tracking number like GP6566')
-    ).toBeInTheDocument()
-
-    fireEvent.change(
-      screen.getByPlaceholderText('Ask about a shipment or paste a tracking number like GP6566'),
-      {
-        target: { value: 'Where is package AB1001?' },
-      }
-    )
-
-    fireEvent.click(screen.getByRole('button', { name: 'Send message' }))
-
-    expect(await screen.findByText('Your package AB1001 is on the way.')).toBeInTheDocument()
-
-    expect(fetch).toHaveBeenNthCalledWith(
-      2,
-      expect.stringContaining('/chatbot/messages'),
-      expect.objectContaining({
-        method: 'POST',
-        body: JSON.stringify({
-          channel: 'web',
-          customerName: 'Gal Halifa',
-          customerPhone: '+972501234567',
-          message: 'Where is package AB1001?',
-        }),
-      })
-    )
+    expect(screen.getByText('Log in or create an account to chat with the delivery assistant on the website.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Send message' })).not.toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,5 +1,4 @@
 import React from 'react'
-import { PersonIcon, PhoneIcon, TextField } from './AuthPrimitives'
 
 function ChatBubble({ role, children }) {
   return (
@@ -28,8 +27,9 @@ function ChatIcon() {
 export function ChatbotWidget({
   isOpen,
   onToggle,
-  chatProfile,
-  onProfileChange,
+  isAuthenticated,
+  onLoginIntent,
+  onRegisterIntent,
   chatMessages,
   chatInput,
   onInputChange,
@@ -58,56 +58,51 @@ export function ChatbotWidget({
             </button>
           </div>
 
-          <div className="chatbot-card__profile">
-            <TextField
-              ariaLabel="Chat name"
-              icon={<PersonIcon />}
-              type="text"
-              name="fullName"
-              placeholder="Your name"
-              value={chatProfile.fullName}
-              onChange={onProfileChange}
-              disabled={isSubmitting}
-            />
-            <TextField
-              ariaLabel="Chat phone number"
-              icon={<PhoneIcon />}
-              type="tel"
-              name="phone"
-              placeholder="Contact phone"
-              value={chatProfile.phone}
-              onChange={onProfileChange}
-              disabled={isSubmitting}
-            />
-          </div>
+          {isAuthenticated ? (
+            <>
+              <div className="chatbot-card__messages" role="log" aria-live="polite">
+                {chatMessages.map((message) => (
+                  <ChatBubble key={message.id} role={message.role}>
+                    {message.content}
+                  </ChatBubble>
+                ))}
+              </div>
 
-          <div className="chatbot-card__messages" role="log" aria-live="polite">
-            {chatMessages.map((message) => (
-              <ChatBubble key={message.id} role={message.role}>
-                {message.content}
-              </ChatBubble>
-            ))}
-          </div>
-
-          <div className="chatbot-card__composer">
-            <textarea
-              className="chatbot-card__input"
-              name="chatMessage"
-              placeholder="Ask about a shipment or paste a tracking number like GP6566"
-              value={chatInput}
-              onChange={onInputChange}
-              disabled={isSubmitting}
-              rows={2}
-            />
-            <button
-              className="button button--primary chatbot-card__send"
-              type="button"
-              onClick={onSubmit}
-              disabled={isSubmitDisabled}
-            >
-              {isSubmitting ? 'Sending...' : 'Send message'}
-            </button>
-          </div>
+              <div className="chatbot-card__composer">
+                <textarea
+                  className="chatbot-card__input"
+                  name="chatMessage"
+                  placeholder="Ask about a shipment or paste a tracking number like GP6566"
+                  value={chatInput}
+                  onChange={onInputChange}
+                  disabled={isSubmitting}
+                  rows={2}
+                />
+                <button
+                  className="button button--primary chatbot-card__send"
+                  type="button"
+                  onClick={onSubmit}
+                  disabled={isSubmitDisabled}
+                >
+                  {isSubmitting ? 'Sending...' : 'Send message'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="chatbot-card__gate">
+              <p className="chatbot-card__hint">
+                Log in or create an account to chat with the delivery assistant on the website.
+              </p>
+              <div className="chatbot-card__gate-actions">
+                <button className="button button--primary chatbot-card__gate-button" type="button" onClick={onLoginIntent}>
+                  Log in to chat
+                </button>
+                <button className="button button--outline chatbot-card__gate-button" type="button" onClick={onRegisterIntent}>
+                  Register to chat
+                </button>
+              </div>
+            </div>
+          )}
 
           {stateStatus !== 'idle' ? (
             <p className={`chatbot-card__message chatbot-card__message--${stateStatus}`}>{stateMessage}</p>

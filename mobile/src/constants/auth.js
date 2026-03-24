@@ -1,5 +1,5 @@
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL || 'http://192.168.1.240:8000'
+  process.env.EXPO_PUBLIC_API_BASE_URL || 'https://ab-python-server.salmonmoss-0b293592.northeurope.azurecontainerapps.io'
 
 export const INITIAL_FORM_DATA = {
   fullName: '',

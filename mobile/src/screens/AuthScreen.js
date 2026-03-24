@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Pressable,
   ScrollView,
@@ -20,6 +20,7 @@ import { clearAuthTokens } from '../services/authStorage'
 import { buildSubmitState, getAuthFormMeta, validateAuthForm } from '../services/authForm'
 import { showMobileToast, tryFetchToastMessageWithFallback } from '../services/toastService'
 import { colors, spacing, typography } from '../constants/theme'
+import { MobileChatbotScreen } from './MobileChatbotScreen'
 
 export function AuthScreen() {
   const [mode, setMode] = useState('login')
@@ -27,6 +28,8 @@ export function AuthScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [formData, setFormData] = useState(INITIAL_FORM_DATA)
   const [submitState, setSubmitState] = useState(INITIAL_SUBMIT_STATE)
+  const [currentUser, setCurrentUser] = useState(null)
+  const [isChatOpen, setIsChatOpen] = useState(false)
 
   const isSubmitting = submitState.status === 'loading'
   const { isRegisterMode, currentModeConfig, hasEmailValue, isSubmitDisabled } = getAuthFormMeta(
@@ -60,7 +63,34 @@ export function AuthScreen() {
     setShowPassword(false)
     setShowConfirmPassword(false)
     setSubmitState(INITIAL_SUBMIT_STATE)
+    setIsChatOpen(false)
   }
+
+  useEffect(() => {
+    let isMounted = true
+
+    async function restoreAuthenticatedUser() {
+      try {
+        const { response, data } = await authenticatedFetch('/me')
+
+        if (!response.ok || !data.user || !isMounted) {
+          return
+        }
+
+        setCurrentUser(data.user)
+      } catch {
+        if (!isMounted) {
+          return
+        }
+      }
+    }
+
+    void restoreAuthenticatedUser()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const handleSubmit = async () => {
     const validationError = validateAuthForm(mode, formData)
@@ -109,6 +139,10 @@ export function AuthScreen() {
         await persistAuthResponse(data)
       } else if (mode === 'login') {
         await clearAuthTokens()
+      }
+
+      if (data.user) {
+        setCurrentUser(data.user)
       }
 
       if (isRegisterMode) {
@@ -257,6 +291,20 @@ export function AuthScreen() {
               isCompact
             />
           </View>
+
+          <MobileChatbotScreen
+            currentUser={currentUser}
+            isOpen={isChatOpen}
+            onToggle={() => setIsChatOpen((current) => !current)}
+            onLoginIntent={() => switchMode('login')}
+            onRegisterIntent={() => switchMode('register')}
+            onLogout={() => {
+              setCurrentUser(null)
+              setSubmitState(INITIAL_SUBMIT_STATE)
+              setMode('login')
+              setIsChatOpen(false)
+            }}
+          />
         </View>
       </View>
     </ScrollView>

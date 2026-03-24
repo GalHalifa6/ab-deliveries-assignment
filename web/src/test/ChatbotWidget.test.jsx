@@ -14,11 +14,9 @@ afterEach(() => {
 const buildProps = (overrides = {}) => ({
   isOpen: false,
   onToggle: vi.fn(),
-  chatProfile: {
-    fullName: '',
-    phone: '',
-  },
-  onProfileChange: vi.fn(),
+  isAuthenticated: false,
+  onLoginIntent: vi.fn(),
+  onRegisterIntent: vi.fn(),
   chatMessages: [],
   chatInput: '',
   onInputChange: vi.fn(),
@@ -46,15 +44,32 @@ describe('ChatbotWidget', () => {
     expect(props.onToggle).toHaveBeenCalledTimes(1)
   })
 
-  it('renders the open state with guest profile fields and messages', () => {
+  it('renders the gated open state when the user is not authenticated', async () => {
+    const user = userEvent.setup()
+    const props = buildProps({
+      isOpen: true,
+    })
+
+    render(<ChatbotWidget {...props} />)
+
+    expect(screen.getByText('Log in or create an account to chat with the delivery assistant on the website.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Log in to chat' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Register to chat' })).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Ask about a shipment or paste a tracking number like GP6566')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Log in to chat' }))
+    await user.click(screen.getByRole('button', { name: 'Register to chat' }))
+
+    expect(props.onLoginIntent).toHaveBeenCalledTimes(1)
+    expect(props.onRegisterIntent).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders the open authenticated state with messages', () => {
     render(
       <ChatbotWidget
         {...buildProps({
           isOpen: true,
-          chatProfile: {
-            fullName: 'Gal',
-            phone: '+972501234567',
-          },
+          isAuthenticated: true,
           chatMessages: [
             { id: '1', role: 'assistant', content: 'Hello there' },
             { id: '2', role: 'user', content: 'Where is GP6566?' },
@@ -67,8 +82,6 @@ describe('ChatbotWidget', () => {
     )
 
     expect(screen.getByLabelText('Delivery assistant')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('Gal')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('+972501234567')).toBeInTheDocument()
     expect(screen.getByText('Hello there')).toBeInTheDocument()
     expect(screen.getByText('Where is GP6566?')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Track GP6566')).toBeInTheDocument()
@@ -81,14 +94,13 @@ describe('ChatbotWidget', () => {
       <ChatbotWidget
         {...buildProps({
           isOpen: true,
+          isAuthenticated: true,
           isSubmitting: true,
           isSubmitDisabled: true,
         })}
       />,
     )
 
-    expect(screen.getByPlaceholderText('Your name')).toBeDisabled()
-    expect(screen.getByPlaceholderText('Contact phone')).toBeDisabled()
     expect(screen.getByPlaceholderText('Ask about a shipment or paste a tracking number like GP6566')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Sending...' })).toBeDisabled()
   })

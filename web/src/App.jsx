@@ -27,10 +27,6 @@ function App() {
   const [submitState, setSubmitState] = useState(INITIAL_SUBMIT_STATE)
   const [currentUser, setCurrentUser] = useState(null)
   const [isChatOpen, setIsChatOpen] = useState(false)
-  const [chatProfile, setChatProfile] = useState({
-    fullName: '',
-    phone: '',
-  })
   const [chatInput, setChatInput] = useState('')
   const [chatState, setChatState] = useState({
     status: 'idle',
@@ -64,8 +60,7 @@ function App() {
   )
   const isSubmitDisabled = isSubmitting || (isRegisterMode ? !isRegisterFormValid : !isLoginFormValid)
   const isChatSubmitting = chatState.status === 'loading'
-  const isChatProfileReady = Boolean(chatProfile.fullName.trim() && chatProfile.phone.trim())
-  const isChatDisabled = !isChatProfileReady || !chatInput.trim() || isChatSubmitting
+  const isChatDisabled = !currentUser || !chatInput.trim() || isChatSubmitting
 
   useEffect(() => {
     if (!accessToken) {
@@ -88,10 +83,6 @@ function App() {
         }
 
         setCurrentUser(data.user)
-        setChatProfile((current) => ({
-          fullName: current.fullName || data.user.fullName || '',
-          phone: current.phone || data.user.phone || '',
-        }))
       } catch {
         if (isActive) {
           setCurrentUser(null)
@@ -105,15 +96,6 @@ function App() {
       isActive = false
     }
   }, [accessToken])
-
-  const handleChatProfileChange = (event) => {
-    const { name, value } = event.target
-
-    setChatProfile((current) => ({
-      ...current,
-      [name]: value,
-    }))
-  }
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -130,16 +112,21 @@ function App() {
     setShowConfirmPassword(false)
     setSubmitState(INITIAL_SUBMIT_STATE)
     resetToastStream()
+    setIsChatOpen(false)
   }
 
   const handleChatSubmit = async () => {
-    if (!isChatProfileReady || !chatInput.trim()) {
+    if (!currentUser || !chatInput.trim()) {
+      setChatState({
+        status: 'error',
+        message: 'Log in or register to use the website chatbot.',
+      })
       return
     }
 
     const nextMessage = chatInput.trim()
-    const customerName = chatProfile.fullName.trim()
-    const customerPhone = chatProfile.phone.trim()
+    const customerName = currentUser.fullName?.trim() || ''
+    const customerPhone = currentUser.phone?.trim() || ''
 
     setChatMessages((current) => [
       ...current,
@@ -576,8 +563,9 @@ function App() {
               <ChatbotWidget
                 isOpen={isChatOpen}
                 onToggle={() => setIsChatOpen((current) => !current)}
-                chatProfile={chatProfile}
-                onProfileChange={handleChatProfileChange}
+                isAuthenticated={Boolean(currentUser)}
+                onLoginIntent={() => switchMode('login')}
+                onRegisterIntent={() => switchMode('register')}
                 chatMessages={chatMessages}
                 chatInput={chatInput}
                 onInputChange={(event) => setChatInput(event.target.value)}

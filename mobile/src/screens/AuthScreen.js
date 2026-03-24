@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,13 +11,14 @@ import { BrandLogo } from '../components/BrandLogo'
 import { OutlineButton, PrimaryButton, SocialButton } from '../components/AuthButton'
 import {
   API_BASE_URL,
-  AUTH_MODE_CONFIG,
   INITIAL_FORM_DATA,
   INITIAL_SUBMIT_STATE,
 } from '../constants/auth'
 import { sendClientTelemetry } from '../services/clientTelemetry'
 import { authenticatedFetch, persistAuthResponse } from '../services/authClient'
 import { clearAuthTokens } from '../services/authStorage'
+import { buildSubmitState, getAuthFormMeta, validateAuthForm } from '../services/authForm'
+import { showMobileToast, tryFetchToastMessageWithFallback } from '../services/toastService'
 import { colors, spacing, typography } from '../constants/theme'
 
 export function AuthScreen() {
@@ -28,22 +28,12 @@ export function AuthScreen() {
   const [formData, setFormData] = useState(INITIAL_FORM_DATA)
   const [submitState, setSubmitState] = useState(INITIAL_SUBMIT_STATE)
 
-  const isRegisterMode = mode === 'register'
-  const currentModeConfig = AUTH_MODE_CONFIG[mode]
   const isSubmitting = submitState.status === 'loading'
-  const hasEmailValue = Boolean(formData.email)
-
-  const isLoginFormValid = Boolean(formData.email && formData.password)
-  const isRegisterFormValid = Boolean(
-    formData.fullName &&
-      formData.phone &&
-      formData.email &&
-      formData.password &&
-      formData.confirmPassword &&
-      formData.password === formData.confirmPassword
+  const { isRegisterMode, currentModeConfig, hasEmailValue, isSubmitDisabled } = getAuthFormMeta(
+    mode,
+    formData,
+    isSubmitting
   )
-
-  const isSubmitDisabled = isSubmitting || (isRegisterMode ? !isRegisterFormValid : !isLoginFormValid)
 
   const statusStyle = useMemo(() => {
     if (submitState.status === 'success') {
@@ -72,93 +62,15 @@ export function AuthScreen() {
     setSubmitState(INITIAL_SUBMIT_STATE)
   }
 
-  const showToast = (message) => {
-    Alert.alert('A.B Deliveries', message)
-  }
-
-  const fetchToastMessage = async () => {
-    sendClientTelemetry({
-      event: 'mobile_toast_fetch_started',
-      endpoint: '/me/toast',
-    })
-    const { response, data } = await authenticatedFetch('/me/toast')
-
-    if (response.ok && data.ready && data.toastMessage) {
-      sendClientTelemetry({
-        event: 'mobile_toast_fetch_succeeded',
-        endpoint: '/me/toast',
-        success: true,
-      })
-      showToast(data.toastMessage)
-      return true
-    }
-
-    sendClientTelemetry({
-      event: 'mobile_toast_fetch_failed',
-      endpoint: '/me/toast',
-      success: false,
-      detail: response.ok ? 'toast_not_ready' : data.detail || 'request_failed',
-    })
-    return false
-  }
-
-  const tryFetchToastMessageWithFallback = async () => {
-    try {
-      await new Promise((resolve) => {
-        setTimeout(resolve, 3000)
-      })
-
-      if (await fetchToastMessage()) {
-        return
-      }
-
-      await new Promise((resolve) => {
-        setTimeout(resolve, 5000)
-      })
-
-      if (await fetchToastMessage()) {
-        return
-      }
-
-      await new Promise((resolve) => {
-        setTimeout(resolve, 8000)
-      })
-
-      await fetchToastMessage()
-    } catch {
-      return
-    }
-  }
-
   const handleSubmit = async () => {
-    if (!formData.email || !formData.password) {
-      setSubmitState({
-        status: 'error',
-        message: currentModeConfig.emptyFieldsMessage,
-      })
+    const validationError = validateAuthForm(mode, formData)
+
+    if (validationError) {
+      setSubmitState(validationError)
       return
     }
 
-    if (isRegisterMode && (!formData.fullName || !formData.phone || !formData.confirmPassword)) {
-      setSubmitState({
-        status: 'error',
-        message: AUTH_MODE_CONFIG.register.emptyFieldsMessage,
-      })
-      return
-    }
-
-    if (isRegisterMode && formData.password !== formData.confirmPassword) {
-      setSubmitState({
-        status: 'error',
-        message: 'Passwords do not match.',
-      })
-      return
-    }
-
-    setSubmitState({
-      status: 'loading',
-      message: currentModeConfig.loadingMessage,
-    })
+    setSubmitState(buildSubmitState('loading', currentModeConfig.loadingMessage))
     sendClientTelemetry({
       event: 'auth_submit_started',
       mode,
@@ -183,10 +95,7 @@ export function AuthScreen() {
         throw new Error(data.detail || 'Request failed.')
       }
 
-      setSubmitState({
-        status: 'success',
-        message: data.message || currentModeConfig.successMessage,
-      })
+      setSubmitState(buildSubmitState('success', data.message || currentModeConfig.successMessage))
       sendClientTelemetry({
         event: 'auth_submit_succeeded',
         mode,
@@ -204,7 +113,7 @@ export function AuthScreen() {
 
       if (isRegisterMode) {
         if (data.toastMessage) {
-          showToast(data.toastMessage)
+          showMobileToast(data.toastMessage)
         } else if (data.toastPending) {
           void tryFetchToastMessageWithFallback()
         }
@@ -226,10 +135,7 @@ export function AuthScreen() {
         detail: error.message || 'Could not connect to the Python server.',
       })
 
-      setSubmitState({
-        status: 'error',
-        message: error.message || 'Could not connect to the Python server.',
-      })
+      setSubmitState(buildSubmitState('error', error.message || 'Could not connect to the Python server.'))
     }
   }
 

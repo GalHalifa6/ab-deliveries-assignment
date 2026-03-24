@@ -1,222 +1,23 @@
 import React, { useEffect, useState } from 'react'
 import illustrationImage from './assets/71b1ce93ba00a27b8ef291cb449e0a6ea47d2ba9.png'
+import {
+  AUTH_MODE_CONFIG,
+  INITIAL_CHAT_MESSAGES,
+  INITIAL_FORM_DATA,
+  INITIAL_SUBMIT_STATE,
+  WEB_CLIENT_TYPE,
+} from './constants/auth'
+import {
+  EmailIcon,
+  PasswordField,
+  PersonIcon,
+  PhoneIcon,
+  SocialAuthButton,
+  TextField,
+} from './components/AuthPrimitives'
+import { ChatbotWidget } from './components/ChatbotWidget'
 import { useAuthToastSession } from './hooks/useAuthToastSession'
 import { sendClientTelemetry } from './services/clientTelemetry'
-
-const INITIAL_FORM_DATA = {
-  fullName: '',
-  phone: '',
-  email: '',
-  password: '',
-  confirmPassword: '',
-}
-
-const INITIAL_SUBMIT_STATE = {
-  status: 'idle',
-  message: '',
-}
-
-const INITIAL_CHAT_MESSAGES = [
-  {
-    id: 'assistant-intro',
-    role: 'assistant',
-    content: 'Hi, I can help you track shipments and answer delivery questions right here on the website.',
-  },
-]
-
-const WEB_CLIENT_TYPE = 'web'
-
-const AUTH_MODE_CONFIG = {
-  login: {
-    endpoint: 'login',
-    loadingMessage: 'Signing you in...',
-    emptyFieldsMessage: 'Please enter your email and password.',
-    successMessage: 'Login completed successfully.',
-    buildPayload: (formData) => ({
-      email: formData.email,
-      password: formData.password,
-    }),
-    resetFormData: (current) => ({
-      ...current,
-      password: '',
-    }),
-  },
-  register: {
-    endpoint: 'register',
-    loadingMessage: 'Creating your account...',
-    emptyFieldsMessage: 'Please fill in all registration fields.',
-    successMessage: 'Registration completed successfully.',
-    buildPayload: (formData) => ({
-      fullName: formData.fullName,
-      phone: formData.phone,
-      email: formData.email,
-      password: formData.password,
-    }),
-    resetFormData: () => ({
-      fullName: '',
-      phone: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-    }),
-  },
-}
-
-function PersonIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none">
-      <circle cx="12" cy="8" r="3.25" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M5.5 19C5.5 15.96 8.19 13.5 12 13.5C15.81 13.5 18.5 15.96 18.5 19"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  )
-}
-
-function PhoneIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none">
-      <path
-        d="M8.5 3.75H15.5C16.19 3.75 16.75 4.31 16.75 5V19C16.75 19.69 16.19 20.25 15.5 20.25H8.5C7.81 20.25 7.25 19.69 7.25 19V5C7.25 4.31 7.81 3.75 8.5 3.75Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <path d="M10.5 17H13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function EmailIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none">
-      <rect x="3.5" y="5.5" width="17" height="13" rx="2" stroke="currentColor" strokeWidth="1.5" />
-      <path
-        d="M4.5 6.5L11.16 11.26C11.67 11.62 12.35 11.62 12.86 11.26L19.5 6.5"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function LockIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none">
-      <path
-        d="M8 10V7.5C8 5.57 9.57 4 11.5 4C13.43 4 15 5.57 15 7.5V10"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <rect x="5" y="10" width="13" height="10" rx="2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M11.5 14V16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function EyeIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none">
-      <path
-        d="M2.75 12C4.45 8.85 7.6 6 12 6C16.4 6 19.55 8.85 21.25 12C19.55 15.15 16.4 18 12 18C7.6 18 4.45 15.15 2.75 12Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <circle cx="12" cy="12" r="2.25" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  )
-}
-
-function TextField({ ariaLabel, icon, ...inputProps }) {
-  return (
-    <label className="field" aria-label={ariaLabel}>
-      <span className="field__icon" aria-hidden="true">
-        {icon}
-      </span>
-      <input className="field__input" {...inputProps} />
-    </label>
-  )
-}
-
-function PasswordField({
-  ariaLabel,
-  name,
-  placeholder,
-  value,
-  onChange,
-  disabled,
-  isVisible,
-  onToggleVisibility,
-}) {
-  return (
-    <label className="field" aria-label={ariaLabel}>
-      <span className="field__icon" aria-hidden="true">
-        <LockIcon />
-      </span>
-      <input
-        className="field__input"
-        type={isVisible ? 'text' : 'password'}
-        name={name}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        disabled={disabled}
-      />
-      <button
-        className="field__action"
-        type="button"
-        aria-label={isVisible ? 'Hide password' : 'Show password'}
-        onClick={onToggleVisibility}
-        disabled={disabled}
-      >
-        <EyeIcon />
-      </button>
-    </label>
-  )
-}
-
-function SocialAuthButton({ label, disabled, children }) {
-  return (
-    <button className="button button--outline button--half" type="button" disabled={disabled}>
-      <span className="button__icon" aria-hidden="true">
-        {children}
-      </span>
-      <span>{label}</span>
-    </button>
-  )
-}
-
-function ChatBubble({ role, children }) {
-  return (
-    <div className={`chatbot-card__bubble chatbot-card__bubble--${role}`}>
-      {children}
-    </div>
-  )
-}
-
-function ChatIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none">
-      <path
-        d="M5 7.5C5 6.12 6.12 5 7.5 5H16.5C17.88 5 19 6.12 19 7.5V13.5C19 14.88 17.88 16 16.5 16H11L7 19V16H7.5C6.12 16 5 14.88 5 13.5V7.5Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path d="M8.5 9.5H15.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M8.5 12.5H12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
 
 function App() {
   const [mode, setMode] = useState('login')
@@ -772,96 +573,20 @@ function App() {
                 )}
               </div>
 
-              <div className="chatbot-dock">
-                {isChatOpen ? (
-                  <section className="chatbot-card" id="website-chatbot-panel" aria-label="Delivery assistant">
-                    <div className="chatbot-card__header">
-                      <div className="chatbot-card__header-copy">
-                        <p className="chatbot-card__eyebrow">Website chatbot</p>
-                        <h3 className="chatbot-card__title">Delivery assistant</h3>
-                      </div>
-                      <button
-                        className="chatbot-card__close"
-                        type="button"
-                        aria-label="Close chatbot"
-                        onClick={() => setIsChatOpen(false)}
-                      >
-                        Close
-                      </button>
-                    </div>
-
-                    <div className="chatbot-card__profile">
-                      <TextField
-                        ariaLabel="Chat name"
-                        icon={<PersonIcon />}
-                        type="text"
-                        name="fullName"
-                        placeholder="Your name"
-                        value={chatProfile.fullName}
-                        onChange={handleChatProfileChange}
-                        disabled={isChatSubmitting}
-                      />
-                      <TextField
-                        ariaLabel="Chat phone number"
-                        icon={<PhoneIcon />}
-                        type="tel"
-                        name="phone"
-                        placeholder="Contact phone"
-                        value={chatProfile.phone}
-                        onChange={handleChatProfileChange}
-                        disabled={isChatSubmitting}
-                      />
-                    </div>
-
-                    <div className="chatbot-card__messages" role="log" aria-live="polite">
-                      {chatMessages.map((message) => (
-                        <ChatBubble key={message.id} role={message.role}>
-                          {message.content}
-                        </ChatBubble>
-                      ))}
-                    </div>
-
-                    <div className="chatbot-card__composer">
-                      <textarea
-                        className="chatbot-card__input"
-                        name="chatMessage"
-                        placeholder="Ask about a shipment or paste a tracking number like GP6566"
-                        value={chatInput}
-                        onChange={(event) => setChatInput(event.target.value)}
-                        disabled={isChatSubmitting}
-                        rows={2}
-                      />
-                      <button
-                        className="button button--primary chatbot-card__send"
-                        type="button"
-                        onClick={handleChatSubmit}
-                        disabled={isChatDisabled}
-                      >
-                        {isChatSubmitting ? 'Sending...' : 'Send message'}
-                      </button>
-                    </div>
-
-                    {chatState.status !== 'idle' ? (
-                      <p className={`chatbot-card__message chatbot-card__message--${chatState.status}`}>
-                        {chatState.message}
-                      </p>
-                    ) : null}
-                  </section>
-                ) : null}
-
-                <button
-                  className="chatbot-launcher"
-                  type="button"
-                  aria-expanded={isChatOpen}
-                  aria-controls="website-chatbot-panel"
-                  onClick={() => setIsChatOpen((current) => !current)}
-                >
-                  <span className="chatbot-launcher__icon" aria-hidden="true">
-                    <ChatIcon />
-                  </span>
-                  <span>{isChatOpen ? 'Hide chat' : 'Chat with us'}</span>
-                </button>
-              </div>
+              <ChatbotWidget
+                isOpen={isChatOpen}
+                onToggle={() => setIsChatOpen((current) => !current)}
+                chatProfile={chatProfile}
+                onProfileChange={handleChatProfileChange}
+                chatMessages={chatMessages}
+                chatInput={chatInput}
+                onInputChange={(event) => setChatInput(event.target.value)}
+                onSubmit={handleChatSubmit}
+                isSubmitting={isChatSubmitting}
+                isSubmitDisabled={isChatDisabled}
+                stateMessage={chatState.message}
+                stateStatus={chatState.status}
+              />
             </div>
           </form>
         </div>

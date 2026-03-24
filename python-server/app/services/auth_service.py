@@ -1,5 +1,4 @@
 import hmac
-import secrets
 import time
 from typing import Optional
 
@@ -8,12 +7,13 @@ from passlib.context import CryptContext
 from pymongo.errors import PyMongoError, ServerSelectionTimeoutError
 
 from app import config
-from app.repositories.refresh_session_repository import refresh_session_repository
 from app.repositories.user_repository import DuplicateKeyError, user_repository
+from app.services import auth_cookies, auth_sessions
 from app.services import token_service
 
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+refresh_session_repository = auth_sessions.refresh_session_repository
 
 
 def resolve_client_type_hint(x_client_type: Optional[str]) -> str:
@@ -38,72 +38,59 @@ def build_auth_response(access_token: str, client_type: str) -> dict:
     }
 
 
+def create_refresh_session(email: str, client_type: str) -> tuple[dict, str]:
+    auth_sessions.refresh_session_repository = refresh_session_repository
+    return auth_sessions.create_refresh_session(email, client_type)
+
+
 def set_refresh_cookie(response: Response, refresh_token: str):
-    response.set_cookie(
-        key=config.REFRESH_COOKIE_NAME,
-        value=refresh_token,
-        httponly=True,
-        secure=config.REFRESH_COOKIE_SECURE,
-        samesite=config.REFRESH_COOKIE_SAMESITE,
-        max_age=config.AUTH_REFRESH_TOKEN_TTL_SECONDS,
-        path="/",
-    )
+    auth_cookies.set_refresh_cookie(response, refresh_token)
 
 
 def clear_refresh_cookie(response: Response):
-    response.delete_cookie(
-        key=config.REFRESH_COOKIE_NAME,
-        httponly=True,
-        secure=config.REFRESH_COOKIE_SECURE,
-        samesite=config.REFRESH_COOKIE_SAMESITE,
-        path="/",
-    )
+    auth_cookies.clear_refresh_cookie(response)
 
 
 def set_stream_cookie(response: Response, stream_token: str):
-    response.set_cookie(
-        key=config.STREAM_COOKIE_NAME,
-        value=stream_token,
-        httponly=True,
-        secure=config.STREAM_COOKIE_SECURE,
-        samesite=config.STREAM_COOKIE_SAMESITE,
-        max_age=config.STREAM_TOKEN_TTL_SECONDS,
-        path="/me/toast/stream",
-    )
+    auth_cookies.set_stream_cookie(response, stream_token)
 
 
 def clear_stream_cookie(response: Response):
-    response.delete_cookie(
-        key=config.STREAM_COOKIE_NAME,
-        httponly=True,
-        secure=config.STREAM_COOKIE_SECURE,
-        samesite=config.STREAM_COOKIE_SAMESITE,
-        path="/me/toast/stream",
-    )
+    auth_cookies.clear_stream_cookie(response)
 
 
-def create_refresh_session(email: str, client_type: str) -> tuple[dict, str]:
-    now = int(time.time())
-    session_id = secrets.token_urlsafe(24)
-    refresh_token = token_service.generate_refresh_token(session_id)
-    session_document = {
-        "sessionId": session_id,
-        "userEmail": email.lower(),
-        "clientType": client_type,
-        "refreshTokenHash": token_service.hash_refresh_token(refresh_token),
-        "tokenFamilyId": secrets.token_urlsafe(18),
-        "createdAt": now,
-        "expiresAt": now + config.AUTH_REFRESH_TOKEN_TTL_SECONDS,
-        "lastUsedAt": now,
-        "revokedAt": None,
+def _build_user_document(payload) -> dict:
+    return {
+        "fullName": payload.fullName.strip(),
+        "phone": payload.phone.strip(),
+        "email": payload.email.lower(),
+        "passwordHash": pwd_context.hash(payload.password),
+        "toastMessage": None,
+        "createdAt": int(time.time()),
     }
 
-    try:
-        refresh_session_repository.create_session(session_document)
-    except PyMongoError as error:
-        raise HTTPException(status_code=500, detail="Database error while creating the session.") from error
 
-    return session_document, refresh_token
+def _persist_new_user(user_document: dict) -> None:
+    try:
+        user_repository.create_user(user_document)
+    except DuplicateKeyError as error:
+        raise HTTPException(status_code=409, detail="A user with this email already exists.") from error
+    except PyMongoError as error:
+        raise HTTPException(status_code=500, detail="Database error while saving the user.") from error
+
+
+def _issue_web_auth_payload(access_token: str, refresh_token: str, response: Response) -> dict:
+    set_refresh_cookie(response, refresh_token)
+    return {
+        "auth": build_auth_response(access_token, "web"),
+    }
+
+
+def _issue_mobile_auth_payload(access_token: str, refresh_token: str) -> dict:
+    return {
+        "auth": build_auth_response(access_token, "mobile"),
+        "refreshToken": refresh_token,
+    }
 
 
 def issue_auth_payload(email: str, client_type: str, response: Response) -> dict:
@@ -111,15 +98,9 @@ def issue_auth_payload(email: str, client_type: str, response: Response) -> dict
     access_token = token_service.create_access_token(email, session["sessionId"], client_type)
 
     if client_type == "web":
-        set_refresh_cookie(response, refresh_token)
-        return {
-            "auth": build_auth_response(access_token, client_type),
-        }
+        return _issue_web_auth_payload(access_token, refresh_token, response)
 
-    return {
-        "auth": build_auth_response(access_token, client_type),
-        "refreshToken": refresh_token,
-    }
+    return _issue_mobile_auth_payload(access_token, refresh_token)
 
 
 def get_user_by_email(email: str):
@@ -139,22 +120,9 @@ def register_user(payload, background_tasks, response: Response, client_type_hin
     if existing_user:
         raise HTTPException(status_code=409, detail="A user with this email already exists.")
 
-    email = payload.email.lower()
-    user_document = {
-        "fullName": payload.fullName.strip(),
-        "phone": payload.phone.strip(),
-        "email": email,
-        "passwordHash": pwd_context.hash(payload.password),
-        "toastMessage": None,
-        "createdAt": int(time.time()),
-    }
-
-    try:
-        user_repository.create_user(user_document)
-    except DuplicateKeyError as error:
-        raise HTTPException(status_code=409, detail="A user with this email already exists.") from error
-    except PyMongoError as error:
-        raise HTTPException(status_code=500, detail="Database error while saving the user.") from error
+    user_document = _build_user_document(payload)
+    email = user_document["email"]
+    _persist_new_user(user_document)
 
     from app.services.toast_service import generate_and_store_toast_message
 
@@ -209,12 +177,8 @@ def get_active_refresh_session(raw_refresh_token: str) -> dict:
 
 
 def get_active_refresh_session_by_id(session_id: str) -> dict:
-    try:
-        session = refresh_session_repository.get_session(session_id)
-    except ServerSelectionTimeoutError as error:
-        raise HTTPException(status_code=503, detail="Database connection is currently unavailable.") from error
-    except PyMongoError as error:
-        raise HTTPException(status_code=500, detail="Database error while loading the session.") from error
+    auth_sessions.refresh_session_repository = refresh_session_repository
+    session = auth_sessions.get_refresh_session(session_id)
 
     if not session or session.get("revokedAt"):
         raise HTTPException(status_code=401, detail="Refresh session is invalid or has expired.")
@@ -227,10 +191,8 @@ def get_active_refresh_session_by_id(session_id: str) -> dict:
 
 
 def revoke_refresh_session(session_id: str):
-    try:
-        refresh_session_repository.revoke_session(session_id, int(time.time()))
-    except PyMongoError as error:
-        raise HTTPException(status_code=500, detail="Database error while revoking the session.") from error
+    auth_sessions.refresh_session_repository = refresh_session_repository
+    auth_sessions.revoke_refresh_session(session_id)
 
 
 def validate_refresh_token(raw_refresh_token: str) -> dict:
@@ -245,19 +207,31 @@ def validate_refresh_token(raw_refresh_token: str) -> dict:
 
 def rotate_refresh_token(session: dict) -> str:
     new_refresh_token = token_service.generate_refresh_token(session["sessionId"])
-    now = int(time.time())
-
-    try:
-        refresh_session_repository.rotate_session(
-            session["sessionId"],
-            token_service.hash_refresh_token(new_refresh_token),
-            now + config.AUTH_REFRESH_TOKEN_TTL_SECONDS,
-            now,
-        )
-    except PyMongoError as error:
-        raise HTTPException(status_code=500, detail="Database error while rotating the session.") from error
+    auth_sessions.refresh_session_repository = refresh_session_repository
+    auth_sessions.rotate_refresh_session(session["sessionId"], new_refresh_token)
 
     return new_refresh_token
+
+
+def _build_refresh_response(
+    *,
+    response: Response,
+    client_type: str,
+    access_token: str,
+    refresh_token: str,
+) -> dict:
+    if client_type == "web":
+        set_refresh_cookie(response, refresh_token)
+        return {
+            "success": True,
+            "auth": build_auth_response(access_token, client_type),
+        }
+
+    return {
+        "success": True,
+        "auth": build_auth_response(access_token, client_type),
+        "refreshToken": refresh_token,
+    }
 
 
 def refresh_auth(response: Response, payload_token: Optional[str], refresh_token_cookie: Optional[str], client_type_hint: Optional[str]) -> dict:
@@ -267,18 +241,12 @@ def refresh_auth(response: Response, payload_token: Optional[str], refresh_token
     client_type = session["clientType"]
     access_token = token_service.create_access_token(session["userEmail"], session["sessionId"], client_type)
 
-    if client_type == "web":
-        set_refresh_cookie(response, new_refresh_token)
-        return {
-            "success": True,
-            "auth": build_auth_response(access_token, client_type),
-        }
-
-    return {
-        "success": True,
-        "auth": build_auth_response(access_token, client_type),
-        "refreshToken": new_refresh_token,
-    }
+    return _build_refresh_response(
+        response=response,
+        client_type=client_type,
+        access_token=access_token,
+        refresh_token=new_refresh_token,
+    )
 
 
 def logout(response: Response, payload_token: Optional[str], refresh_token_cookie: Optional[str], client_type_hint: Optional[str]) -> dict:
@@ -302,10 +270,8 @@ def logout(response: Response, payload_token: Optional[str], refresh_token_cooki
 
 
 def logout_all(response: Response, current_user: dict) -> dict:
-    try:
-        refresh_session_repository.revoke_all_sessions(current_user["email"], int(time.time()))
-    except PyMongoError as error:
-        raise HTTPException(status_code=500, detail="Database error while revoking sessions.") from error
+    auth_sessions.refresh_session_repository = refresh_session_repository
+    auth_sessions.revoke_all_refresh_sessions(current_user["email"])
 
     clear_refresh_cookie(response)
     clear_stream_cookie(response)

@@ -36,6 +36,14 @@ class LogoutRequest(BaseModel):
     refreshToken: Optional[str] = None
 
 
+class GoogleLoginRequest(BaseModel):
+    idToken: str
+
+
+class ProfilePhoneRequest(BaseModel):
+    phone: str
+
+
 def require_current_user(authorization: Optional[str] = Header(default=None)):
     return auth_service.get_current_user(authorization)
 
@@ -63,6 +71,16 @@ def login(
 ):
     logger.info("Login request received for email: %s", payload.email)
     return auth_service.login_user(payload, response, x_client_type)
+
+
+@router.post("/login/google")
+def login_with_google(
+    payload: GoogleLoginRequest,
+    response: Response,
+    x_client_type: Optional[str] = Header(default=None),
+):
+    logger.info("Google login request received.")
+    return auth_service.login_with_google(payload.idToken, response, x_client_type)
 
 
 @router.post("/refresh")
@@ -111,6 +129,11 @@ def get_me(current_user: dict = Depends(require_current_user)):
         "authenticated": True,
         "user": auth_service.build_user_response(current_user),
     }
+
+
+@router.patch("/me/profile")
+def update_my_profile(payload: ProfilePhoneRequest, current_user: dict = Depends(require_current_user)):
+    return auth_service.update_current_user_phone(current_user, payload.phone)
 
 
 @router.get("/me/toast")

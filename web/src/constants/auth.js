@@ -20,6 +20,7 @@ export const INITIAL_CHAT_MESSAGES = [
 ]
 
 export const WEB_CLIENT_TYPE = 'web'
+export const GOOGLE_OAUTH_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || ''
 
 export const AUTH_MODE_CONFIG = {
   login: {

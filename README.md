@@ -89,8 +89,6 @@ Completed:
 - Shipment lookup is backed by a real MongoDB `shipments` collection
 - The chatbot prompt is documented in `chatbot/PROMPT.md`
 
-
-
 ## Assignment Coverage
 
 Base assignment status:
@@ -430,14 +428,3 @@ The project is prepared for deployment-oriented configuration:
 - Docker support is available for the deployable services
 - local and CI test flows are in place before Azure deployment
 - Azure deployment is now set up to happen automatically from GitHub after a green `main` build
-
-## Next Step
-
-The next step is to continue hardening and polishing the product:
-
-1. Finish the remaining mobile visual polish
-2. Turn on Twilio signature validation with production credentials
-3. Move from Twilio Sandbox to a production WhatsApp sender if needed
-4. Run additional live chatbot verification with more edge cases
-5. Rotate the MongoDB Atlas credentials used during deployment testing
-6. Add a production-grade password reset flow

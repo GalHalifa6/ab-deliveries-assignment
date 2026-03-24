@@ -40,22 +40,26 @@ The repository already includes a working end-to-end chatbot flow:
 Use the existing repo in this shape:
 
 - `python-server/`
+  
   - source of truth for MongoDB
   - channel adapters and chatbot orchestration
   - shipment lookup logic
   - Google Sheets logging integration
 
 - `node-ai/`
+  
   - OpenAI integration
   - chatbot prompt construction
   - structured response generation in the customer's language
 
 - `chatbot/`
+  
   - architecture note
   - `PROMPT.md`
   - implementation plan
 
 - Google Sheets
+  
   - audit log for all chatbot conversations
 
 This keeps responsibilities clear:
@@ -317,8 +321,8 @@ This is the recommended runtime flow for the current live channel adapters: What
    - conversation id
    - shipment/tracking reference if available
 10. The adapter formats the response for the calling channel:
-   - WhatsApp returns TwiML to Twilio
-   - web returns JSON to the React client
+    - WhatsApp returns TwiML to Twilio
+    - web returns JSON to the React client
 
 ### Outbound Behavior
 
@@ -676,16 +680,16 @@ Start with the smallest vertical slice.
 Purpose:
 
 - receive inbound WhatsApp message
-- act as the first channel adapter
-- pass normalized input into the chatbot orchestrator
 
+- act as the first channel adapter
+
+- pass normalized input into the chatbot orchestrator
 2. `POST /chatbot/messages`
 
 Purpose:
 
 - internal or local test endpoint
 - lets you test the channel-agnostic orchestrator without Twilio
-
 3. Optional internal helper:
 - `GET /chatbot/shipments/by-phone`
 - not required if lookup stays purely inside the service layer
@@ -718,7 +722,7 @@ Keep the first version small.
 Suggested additions:
 
 - `python-server/app/services/chatbot_service.py`
-
+  
   - shared chatbot orchestrator
   - customer identification
   - shipment lookup
@@ -726,23 +730,23 @@ Suggested additions:
   - call Google Sheets logger
 
 - `python-server/app/services/channel_adapter_service.py`
-
+  
   - normalize inbound provider payloads
   - format outbound provider responses
   - keep WhatsApp-specific mapping out of the main orchestrator
 
 - `python-server/app/repositories/shipment_repository.py`
-
+  
   - `get_by_tracking_number`
   - `get_recent_by_phone`
 
 - `python-server/app/routes/chatbot_routes.py`
-
+  
   - WhatsApp webhook route
   - generic local test route
 
 - `python-server/app/services/google_sheets_service.py`
-
+  
   - append conversation rows
 
 ### Node
@@ -780,56 +784,4 @@ Build order that was used:
 10. Deploy updated Python and Node services to Azure.
 11. Validate the end-to-end flow in WhatsApp.
 
-## Minimal Seed Data Recommendation
-
-Seed a few realistic shipments so demos are reliable.
-
-Examples:
-
-- one delivered shipment
-- one out-for-delivery shipment
-- one delayed shipment
-- one in-transit shipment
-- one customer with two shipments to test ambiguity
-
-This will make the assistant demo much stronger.
-
-## Recommended MVP Scope
-
-For the first clean submission, implement only:
-
-- channel-agnostic orchestrator
-- WhatsApp as the first adapter
-- shipment lookup by phone and tracking number
-- one OpenAI-powered Hebrew reply endpoint
-- Google Sheets append logging
-- prompt documentation
-
-Do not add:
-
-- admin dashboards
-- agent handoff
-- multi-turn memory beyond simple context
-- full order creation flow
-- complex analytics
-
-That keeps the project clean and presentable.
-
-## Final Recommendation
-
-The best first implementation for this repository is:
-
-- Twilio WhatsApp webhook into `python-server`
-- channel adapter layer in Python for inbound and outbound provider mapping
-- shared chatbot orchestrator in Python
-- shipment lookup in MongoDB through Python
-- AI reply generation in `node-ai`
-- conversation logging from Python to Google Sheets
-- prompt documentation in `chatbot/PROMPT.md`
-
-This is the smallest version that still feels production-style and should score well on:
-
-- prompt quality
-- correctness of transferred data
-- realistic architecture
-- clarity of presentation
+# 

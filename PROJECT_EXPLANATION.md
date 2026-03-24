@@ -17,6 +17,7 @@ It is written as a project handoff and submission companion.
 The project implements the A.B Deliveries assignment with two main parts:
 
 1. The base assignment
+   
    - mobile registration/login experience
    - web registration/login experience
    - Python backend
@@ -24,6 +25,7 @@ The project implements the A.B Deliveries assignment with two main parts:
    - asynchronous post-registration toast message generated through a second Node.js AI service
 
 2. The extended assignment
+   
    - a friendly AI customer-service and sales chatbot
    - WhatsApp and web as customer channels
    - package-status support using real shipment data from MongoDB
@@ -37,6 +39,7 @@ The system is built as a small multi-service application with clear responsibili
 Main components:
 
 - `web/`
+  
   - React web client
   - registration/login UI
   - Google sign-in
@@ -45,6 +48,7 @@ Main components:
   - auth-gated web chatbot launcher
 
 - `mobile/`
+  
   - React Native / Expo mobile client
   - registration/login UI
   - secure token storage
@@ -52,6 +56,7 @@ Main components:
   - auth-gated mobile chatbot launcher
 
 - `python-server/`
+  
   - main backend API
   - authentication
   - MongoDB access
@@ -63,23 +68,28 @@ Main components:
   - Twilio WhatsApp webhook handling
 
 - `node-ai/`
+  
   - OpenAI-facing AI service
   - generates registration toast messages
   - generates chatbot replies
 
 - MongoDB Atlas
+  
   - persistent data store
   - users
   - refresh sessions
   - shipments
 
 - Google Sheets
+  
   - chatbot conversation/business log
 
 - Twilio WhatsApp Sandbox
+  
   - inbound/outbound WhatsApp channel for the chatbot
 
 - Azure
+  
   - hosts the deployed services
   - `web`, `python-server`, and `node-ai` run on Azure Container Apps
   - Azure Container Registry stores Docker images
@@ -88,25 +98,32 @@ Main components:
 ## 3. Repository Structure
 
 - `web/`
+  
   - React application for the browser
 
 - `mobile/`
+  
   - React Native / Expo mobile app
 
 - `python-server/`
+  
   - FastAPI application
   - business logic and orchestration layer
 
 - `node-ai/`
+  
   - Node.js AI microservice
 
 - `chatbot/`
+  
   - chatbot prompt and chatbot support assets
 
 - `docs/`
+  
   - architecture and deployment notes
 
 - `.github/workflows/`
+  
   - CI, deploy, and security automation
 
 ## 4. Technologies Used
@@ -573,8 +590,8 @@ The current chatbot flow works like this:
    - `reply`
    - `intent`
 10. Python formats the reply for the channel:
-   - TwiML for Twilio
-   - JSON for the web client
+    - TwiML for Twilio
+    - JSON for the web client
 11. Python writes the interaction to Google Sheets, including the channel value such as `whatsapp` or `web`.
 12. The calling channel displays the reply to the customer.
 
